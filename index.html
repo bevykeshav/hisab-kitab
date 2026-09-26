@@ -1,93 +1,122 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Hisab Kitab</title>
 <meta name="theme-color" content="#111827">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Mera Hisab Kitab">
+<meta name="apple-mobile-web-app-title" content="Hisab Kitab">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg">
-<title>Mera Hisab Kitab</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#f3f4f6;color:#111827}
-.wrap{max-width:760px;margin:auto;padding:16px}.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 12px #0001}
-h1{margin:0}.muted{color:#6b7280;font-size:13px}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-.stat{background:#fff;border-radius:14px;padding:14px}.num{font-size:24px;font-weight:800}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}label{display:block;font-size:14px}
-input,select,textarea,button{width:100%;padding:11px;border-radius:10px;border:1px solid #d1d5db;font:inherit}
-button{background:#111827;color:#fff;border:0;font-weight:700;cursor:pointer}.item{padding:12px 0;border-bottom:1px solid #eee}
-.ok{color:#166534}.err{color:#b91c1c}@media(max-width:600px){.grid,.stats{grid-template-columns:1fr}}
+:root{--bg:#f5f7fb;--card:#fff;--text:#172033;--muted:#6b7280;--line:#e5e7eb;--accent:#2563eb;--green:#059669;--red:#dc2626;--orange:#ea580c;--shadow:0 8px 30px rgba(15,23,42,.06)}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text)}button,input,select{font:inherit}button{cursor:pointer;border:0}.app{display:flex;min-height:100vh}.side{width:235px;background:#111827;color:#fff;padding:22px 14px;position:fixed;height:100vh}.brand{font-size:22px;font-weight:800;padding:8px 12px 25px}.brand small{display:block;font-size:11px;color:#9ca3af;font-weight:500;margin-top:3px}.nav button{display:block;width:100%;text-align:left;background:transparent;color:#d1d5db;padding:12px;border-radius:10px;margin:4px 0}.nav button.active,.nav button:hover{background:#1f2937;color:#fff}.main{margin-left:235px;width:calc(100% - 235px);padding:28px;max-width:1500px}.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}.top h1{margin:0;font-size:28px}.btn{background:var(--accent);color:#fff;padding:11px 16px;border-radius:10px;font-weight:700}.btn.secondary{background:#e5e7eb;color:#111827}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:var(--shadow)}.label{color:var(--muted);font-size:13px}.big{font-size:25px;font-weight:800;margin-top:8px}.green{color:var(--green)}.red{color:var(--red)}.orange{color:var(--orange)}.section{margin-top:20px}.section h2{font-size:18px;margin:0 0 12px}.tablewrap{overflow:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:13px 10px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}.table th{font-size:12px;color:var(--muted)}.pill{display:inline-block;padding:5px 8px;border-radius:999px;font-size:12px;font-weight:700}.pill.in{background:#dcfce7;color:#166534}.pill.out{background:#fee2e2;color:#991b1b}.pill.transfer{background:#dbeafe;color:#1e40af}.two{display:grid;grid-template-columns:1.3fr .7fr;gap:15px}.personrow{display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line)}.muted{color:var(--muted)}.empty{padding:30px;text-align:center;color:var(--muted)}.view{display:none}.view.active{display:block}.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}.filters input,.filters select,.form input,.form select,.form textarea{width:100%;border:1px solid #d1d5db;border-radius:9px;padding:10px;background:#fff}.filters>*{max-width:220px}.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}.modal.show{display:flex}.modalbox{background:#fff;border-radius:16px;padding:22px;width:min(600px,100%);max-height:90vh;overflow:auto}.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form .full{grid-column:1/-1}.form label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.danger{background:#fee2e2;color:#991b1b}.small{font-size:12px}.bar{height:9px;background:#e5e7eb;border-radius:10px;overflow:hidden}.bar>span{display:block;height:100%;background:var(--accent)}@media(max-width:900px){.side{width:72px}.brand{font-size:0}.brand:after{content:'HK';font-size:20px}.nav button{font-size:0;text-align:center}.nav button:before{content:'•';font-size:20px}.main{margin-left:72px;width:calc(100% - 72px);padding:18px}.grid{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}@media(max-width:600px){.main{padding:12px}.grid{grid-template-columns:1fr}.form{grid-template-columns:1fr}.top h1{font-size:22px}.btn{padding:9px 12px}}
 </style>
 </head>
 <body>
-<div class="wrap">
-<h1>Mera Hisab Kitab</h1><p class="muted">Google Sheets connected</p>
-<div class="stats">
-<div class="stat">Received<div class="num" id="received">₹0</div></div>
-<div class="stat">Paid<div class="num" id="paid">₹0</div></div>
-<div class="stat">Net<div class="num" id="net">₹0</div></div>
-</div>
-<div class="card">
-<h2>Add Transaction</h2>
-<form id="form">
-<div class="grid">
-<label>Date<input id="date" type="date" required></label>
-<label>Amount<input id="amount" type="number" min="0" step="0.01" required></label>
-<label>Owner / Whose money?<input id="person" value="You" required></label>
-<label>Type<select id="type"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></label>
-<label>Category<input id="category" value="Other"></label>
-<label>Account<select id="account"><option>Bank</option><option>Cash</option><option>UPI</option></select></label>
-</div>
-<p><label>Note<textarea id="note" rows="3"></textarea></label></p>
-<button type="submit">Save Transaction</button>
-<p id="status" class="muted"></p>
-</form>
-</div>
-<div class="card">
-<h2>Transactions</h2><button type="button" onclick="load()">Refresh</button>
-<div id="list"></div>
-</div>
-</div>
+<div class="app">
+<aside class="side"><div class="brand">Hisab Kitab<small>Family + Business Ledger</small></div><div class="nav">
+<button class="active" data-view="dashboard">Dashboard</button><button data-view="transactions">Transactions</button><button data-view="people">People / Owners</button><button data-view="business">Businesses</button><button data-view="reports">Reports</button>
+</div></aside>
+<main class="main">
+<section id="dashboard" class="view active"><div class="top"><h1>Dashboard</h1><button class="btn" id="addBtn">+ Add Transaction</button></div><div class="grid" id="summary"></div><div class="two section"><div class="card"><h2>Money by Owner</h2><div id="owners"></div></div><div class="card"><h2>Quick Reconciliation</h2><p class="muted small">Enter the actual bank balance to compare it with the app ledger.</p><input id="bankBalance" type="number" placeholder="Actual bank balance" style="width:100%;padding:11px;border:1px solid #d1d5db;border-radius:9px"><div id="recon" style="margin-top:12px"></div></div></div><div class="card section"><h2>Recent Transactions</h2><div id="recent"></div></div></section>
+<section id="transactions" class="view"><div class="top"><h1>Transactions</h1><button class="btn" id="addBtn2">+ Add Transaction</button></div><div class="card"><div class="filters"><input id="search" placeholder="Search note, person, source..."><select id="personFilter"><option value="">All people</option></select><select id="typeFilter"><option value="">All types</option><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></div><div id="allTransactions"></div></div></section>
+<section id="people" class="view"><div class="top"><h1>People / Owners</h1></div><div class="card"><p class="muted">These are the people whose money can be tracked separately. Edit the list inside the app by adding transactions with a new owner name.</p><div id="peopleList"></div></div></section>
+<section id="business" class="view"><div class="top"><h1>Businesses</h1></div><div class="grid"><div class="card"><div class="label">Tuition income</div><div class="big" id="tuitionTotal">₹0</div><div class="muted small">All transactions marked Tuition</div></div><div class="card"><div class="label">Momos sales</div><div class="big" id="momosSales">₹0</div><div class="muted small">Business income</div></div><div class="card"><div class="label">Momos expenses</div><div class="big red" id="momosExp">₹0</div><div class="muted small">Business expenses</div></div><div class="card"><div class="label">Momos net</div><div class="big green" id="momosNet">₹0</div><div class="muted small">Sales minus expenses</div></div></div></section>
+<section id="reports" class="view"><div class="top"><h1>Reports</h1></div><div class="card"><h2>Monthly Summary</h2><div id="monthly"></div></div></section>
+</main></div>
+<div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0">Add Transaction</h2><div class="form"><div><label>Date</label><input id="fDate" type="date"></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><input id="fSource" list="sourceOptions" placeholder="Tuition, Momos, Papa..."><datalist id="sourceOptions"><option>Tuition</option><option>Momos</option><option>Food Cart</option><option>Family</option><option>Grocery</option><option>Rent</option><option>Raw Material</option><option>Other</option></datalist></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
 <script>
-const API="https://script.google.com/macros/s/AKfycbyGjhpK51mHhgBKonDNer-T_RGci0v_69JYJgPp42XCViOpbd7G1QZp0tlK20erV2AS/exec";
-let data=[];
-const $=id=>document.getElementById(id);
-const money=n=>"₹"+Number(n||0).toLocaleString("en-IN",{maximumFractionDigits:2});
-function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
-function render(){
- const r=data.filter(x=>x.type==="income").reduce((a,x)=>a+Number(x.amount||0),0);
- const p=data.filter(x=>x.type==="expense").reduce((a,x)=>a+Number(x.amount||0),0);
- $("received").textContent=money(r);$("paid").textContent=money(p);$("net").textContent=money(r-p);
- $("list").innerHTML=data.slice().reverse().map(x=>`<div class="item"><b>${esc(x.person||"You")}</b> — ${money(x.amount)}<br><span class="muted">${esc(x.date||"")} · ${esc(x.category||"")} · ${esc(x.type||"")}</span><br>${esc(x.note||"")}</div>`).join("")||'<p class="muted">No transactions yet.</p>';
-}
-function api(action,params={}){
+const API='https://script.google.com/macros/s/AKfycbyGjhpK51mHhgBKonDNer-T_RGci0v_69JYJgPp42XCViOpbd7G1QZp0tlK20erV2AS/exec';
+let tx=[];
+let loaded=false;
+const rs=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n||0);
+
+function api(action, params={}){
  return new Promise((resolve,reject)=>{
-  const cb="cb_"+Date.now()+"_"+Math.random().toString(36).slice(2);
-  const s=document.createElement("script");
-  window[cb]=o=>{delete window[cb];s.remove();o?.success===false?reject(new Error(o.error||"API error")):resolve(o)};
-  s.src=API+"?"+new URLSearchParams({action,callback:cb,...params});
-  s.onerror=()=>{delete window[cb];s.remove();reject(new Error("Google Sheets connection failed"))};
-  document.body.appendChild(s);
+   const cb='hk_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+   const s=document.createElement('script');
+   window[cb]=obj=>{delete window[cb];s.remove();obj&&obj.success===false?reject(new Error(obj.error||'API error')):resolve(obj)};
+   s.src=API+'?'+new URLSearchParams({action,callback:cb,...params});
+   s.onerror=()=>{delete window[cb];s.remove();reject(new Error('Google Sheets connection failed'))};
+   document.body.appendChild(s);
  });
 }
-async function load(){
- $("status").textContent="Loading…";
- try{const o=await api("get");data=o.transactions||[];render();$("status").textContent="Connected to Google Sheets";$("status").className="ok"}
- catch(e){$("status").textContent=e.message;$("status").className="err"}
-}
-$("form").addEventListener("submit",async e=>{
- e.preventDefault();$("status").textContent="Saving…";
+async function loadData(){
  try{
-  await api("add",{date:$("date").value,amount:$("amount").value,person:$("person").value,account:$("account").value,type:$("type").value,category:$("category").value,note:$("note").value});
-  e.target.reset();$("date").value=new Date().toISOString().slice(0,10);$("person").value="You";$("category").value="Other";$("account").value="Bank";$("type").value="income";
-  await load();
- }catch(err){$("status").textContent=err.message;$("status").className="err"}
-});
-$("date").value=new Date().toISOString().slice(0,10);
-load();
-if("serviceWorker"in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+   const r=await api('get');
+   tx=(r.transactions||[]).map((x,i)=>({
+     id:String(x.id||Date.now()+i),
+     date:x.date instanceof Object?String(x.date).slice(0,10):String(x.date||'').slice(0,10),
+     amount:Number(x.amount||0),
+     owner:x.person||'You',
+     type:x.type||'income',
+     source:x.category||'Other',
+     method:x.account||'Bank',
+     note:x.note||''
+   }));
+   loaded=true;
+   render();
+ }catch(e){
+   loaded=false;
+   const el=document.getElementById('recent');
+   if(el) el.innerHTML='<div class="empty red">Google Sheets connection failed. '+esc(e.message)+'</div>';
+ }
+}
+function sum(arr){return arr.reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0)}
+function render(){
+ const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0), paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0), balance=received-paid;
+ document.getElementById('summary').innerHTML=`<div class="card"><div class="label">Ledger Balance</div><div class="big">${rs(balance)}</div></div><div class="card"><div class="label">Total Received</div><div class="big green">${rs(received)}</div></div><div class="card"><div class="label">Total Paid</div><div class="big red">${rs(paid)}</div></div><div class="card"><div class="label">Transactions</div><div class="big">${tx.length}</div></div>`;
+ const owners={}; tx.forEach(x=>{owners[x.owner]=(owners[x.owner]||0)+(x.type==='expense'?-x.amount:x.amount)});
+ document.getElementById('owners').innerHTML=Object.keys(owners).length?Object.entries(owners).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="personrow"><span>${esc(k)}</span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`).join(''):'<div class="empty">No transactions</div>';
+ const recent=[...tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).slice(0,8); document.getElementById('recent').innerHTML=table(recent);
+ document.getElementById('allTransactions').innerHTML=table(filtered());
+ const people=[...new Set(tx.map(x=>x.owner))].sort(); document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join(''); document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
+ document.getElementById('peopleList').innerHTML=people.map(p=>{let v=tx.filter(x=>x.owner===p).reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0);return `<div class="personrow"><span><b>${esc(p)}</b><br><span class="muted small">${tx.filter(x=>x.owner===p).length} transactions</span></span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`}).join('');
+ const tuition=tx.filter(x=>x.source.toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0); const ms=tx.filter(x=>['momos','food cart'].some(s=>x.source.toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0); const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>x.source.toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0); document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
+ monthly(); recon();
+}
+function filtered(){const q=(document.getElementById('search')?.value||'').toLowerCase(), p=document.getElementById('personFilter')?.value||'', t=document.getElementById('typeFilter')?.value||'';return [...tx].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).filter(x=>(!q||[x.owner,x.source,x.note,x.method].join(' ').toLowerCase().includes(q))&&(!p||x.owner===p)&&(!t||x.type===t))}
+function table(arr){if(!arr.length)return '<div class="empty">No transactions found.</div>';return `<div class="tablewrap"><table class="table"><thead><tr><th>Date</th><th>Owner</th><th>Source</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${arr.map(x=>`<tr><td>${x.date}</td><td>${esc(x.owner)}</td><td>${esc(x.source)}</td><td><span class="pill ${x.type==='income'?'in':x.type==='expense'?'out':'transfer'}">${x.type}</span></td><td class="${x.type==='expense'?'red':'green'}"><b>${x.type==='expense'?'-':''}${rs(x.amount)}</b></td><td>${esc(x.note||'')}</td><td><button class="small danger" onclick="del(${x.id})">Delete</button></td></tr>`).join('')}</tbody></table></div>`}
+function monthly(){const m={};tx.forEach(x=>{const k=x.date.slice(0,7);m[k]??={in:0,out:0};if(x.type==='income')m[k].in+=x.amount;else if(x.type==='expense')m[k].out+=x.amount});document.getElementById('monthly').innerHTML=Object.entries(m).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>`<div class="personrow"><b>${k}</b><span>Received <span class="green">${rs(v.in)}</span> · Paid <span class="red">${rs(v.out)}</span> · Net <b>${rs(v.in-v.out)}</b></span></div>`).join('')||'<div class="empty">No data</div>'}
+function recon(){const b=parseFloat(document.getElementById('bankBalance').value);const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0),paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0),ledger=received-paid;if(!isNaN(b))document.getElementById('recon').innerHTML=`<b>App ledger:</b> ${rs(ledger)}<br><b>Difference:</b> <span class="${Math.abs(b-ledger)<.01?'green':'red'}">${rs(b-ledger)}</span>`;else document.getElementById('recon').innerHTML='<span class="muted small">Enter a bank balance to check.</span>'}
+function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=new Date().toISOString().slice(0,10);document.getElementById('fAmount').focus()}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+async function del(id){
+ if(!confirm('Delete this transaction?'))return;
+ try{await api('delete',{id});await loadData()}catch(e){alert(e.message)}
+}
+document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
+document.getElementById('save').onclick=async()=>{
+ const amount=+document.getElementById('fAmount').value;
+ if(!amount)return alert('Amount enter karo');
+ const item={
+   date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10),
+   amount,
+   owner:document.getElementById('fOwner').value.trim()||'You',
+   type:document.getElementById('fType').value,
+   source:document.getElementById('fSource').value.trim()||'Other',
+   method:document.getElementById('fMethod').value,
+   note:document.getElementById('fNote').value.trim()
+ };
+ try{
+   document.getElementById('save').disabled=true;
+   await api('add',{date:item.date,amount:item.amount,person:item.owner,account:item.method,type:item.type,category:item.source,note:item.note});
+   document.getElementById('save').disabled=false;
+   closeModal();
+   document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');
+   await loadData();
+ }catch(e){
+   document.getElementById('save').disabled=false;
+   alert(e.message);
+ }
+};tx.push(item);save();closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');render()};
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(b.dataset.view).classList.add('active');render()});
+render();
 </script>
-</body>
-</html>
+</body></html>
+
+<script>
+loadData();
+</script>
