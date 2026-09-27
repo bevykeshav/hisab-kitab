@@ -23,105 +23,168 @@
 <script>
 const API='https://script.google.com/macros/s/AKfycbyGjhpK51mHhgBKonDNer-T_RGci0v_69JYJgPp42XCViOpbd7G1QZp0tlK20erV2AS/exec';
 const KEY='hisab_kitab_v3';
-const QUEUE_KEY='hisab_kitab_sync_queue_v1';
+const QUEUE_KEY='hisab_kitab_sync_queue_v2';
 let tx=JSON.parse(localStorage.getItem(KEY)||'[]');
 let syncQueue=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');
 let syncing=false;
-let loading=false;
+
 const rs=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n||0);
 function saveLocal(){localStorage.setItem(KEY,JSON.stringify(tx));}
 function saveQueue(){localStorage.setItem(QUEUE_KEY,JSON.stringify(syncQueue));}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-function makeId(){return crypto?.randomUUID?crypto.randomUUID():'TX-'+Date.now()+'-'+Math.random().toString(36).slice(2,10)}
-function jsonp(params,timeoutMs=15000){return new Promise((resolve,reject)=>{const cb='hkcb_'+Date.now()+'_'+Math.random().toString(36).slice(2);const script=document.createElement('script');const q=new URLSearchParams({...params,callback:cb});const timer=setTimeout(()=>{cleanup();reject(new Error('Google Sheets connection timed out'));},timeoutMs);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=d=>{cleanup();resolve(d)};script.onerror=()=>{cleanup();reject(new Error('Google Sheets connection failed'))};script.src=API+'?'+q.toString();document.body.appendChild(script)})}
-function normalize(row){return {id:String(row.id||makeId()),date:String(row.date||'').slice(0,10),amount:Number(row.amount||0),owner:row.person||'You',type:row.type||'income',source:row.category||'Other',method:row.account||'Bank',note:row.note||'',syncStatus:'synced'}}
-function setConnection(text,color){let el=document.getElementById('connectionStatus');if(!el){const top=document.querySelector('.top');el=document.createElement('div');el.id='connectionStatus';el.className='small';top.appendChild(el)}el.textContent='● '+text;el.className='small '+color}
-function updateSyncStatus(){if(syncing)setConnection('Syncing to Google Sheets…','orange');else if(syncQueue.length)setConnection(syncQueue.length+' pending — saved on this device','orange');else setConnection('Synced with Google Sheets','green')}
-async function loadFromGoogle(){updateSyncStatus();try{const data=await jsonp({action:'get'},12000);if(!data.success)throw new Error(data.error||'Unable to read Sheet');const server=(data.transactions||[]).map(normalize);const queued=new Set(syncQueue.map(x=>String(x.id)));const merged=[...server];for(const item of tx)if(!merged.some(x=>String(x.id)===String(item.id)))merged.push(item);tx=merged.map(x=>queued.has(String(x.id))?{...x,syncStatus:'pending'}:x);saveLocal();render();updateSyncStatus();syncQueueNow()}catch(e){setConnection(syncQueue.length?syncQueue.length+' pending — Google unavailable':'Google unavailable — local mode','red');console.error(e)}}
-async function addToGoogle(item){const data=await jsonp({action:'add',id:item.id,date:item.date,person:item.owner,account:item.method,type:item.type,category:item.source,amount:item.amount,note:item.note},15000);if(!data.success)throw new Error(data.error||'Save failed');return data.transaction}
-async function deleteFromGoogle(id){const data=await jsonp({action:'delete',id:String(id)},15000);if(!data.success)throw new Error(data.error||'Delete failed')}
-async function syncQueueNow(){if(syncing||!navigator.onLine||!syncQueue.length){updateSyncStatus();return}syncing=true;updateSyncStatus();while(syncQueue.length&&navigator.onLine){const item=syncQueue[0];try{const server=await addToGoogle(item);tx=tx.map(x=>String(x.id)===String(item.id)?{...x,id:String(server?.id||item.id),syncStatus:'synced'}:x);syncQueue.shift();saveQueue();saveLocal();render()}catch(e){console.error('Sync failed:',e);break}}syncing=false;updateSyncStatus()}
-function queueTransaction(item){item.syncStatus='pending';tx.push(item);syncQueue.push(item);saveLocal();saveQueue();render();syncQueueNow()}
-function markPendingForDelete(id){syncQueue=syncQueue.filter(x=>String(x.id)!==String(id));saveQueue()}
-function normalize(row){
-  const d=String(row.date||'').slice(0,10);
-  return {
-    id:String(row.id||Date.now()), date:d, amount:Number(row.amount||0),
-    owner:row.person||'You', type:row.type||'income', source:row.category||'Other',
-    method:row.account||'Bank', note:row.note||''
-  };
-}
+function makeId(){return (crypto&&crypto.randomUUID)?crypto.randomUUID():'TX-'+Date.now()+'-'+Math.random().toString(36).slice(2,10)}
 
-async function loadFromGoogle(){
-  setConnection('Connecting to Google Sheets…','orange');
-  try{
-    const data=await jsonp({action:'get'});
-    if(!data.success) throw new Error(data.error||'Unable to read Sheet');
-    tx=(data.transactions||[]).map(normalize);
-    saveLocal();
-    setConnection('Connected to Google Sheets','green');
-  }catch(e){
-    setConnection('Google Sheets unavailable — using local cache','red');
-    console.error(e);
-  }
-  loading=false; render();
-}
-
-async function addToGoogle(item){
-  setConnection('Saving to Google Sheets…','orange');
-  const data=await jsonp({
-    action:'add', date:item.date, person:item.owner, account:item.method,
-    type:item.type, category:item.source, amount:item.amount, note:item.note
+function jsonp(params,timeoutMs=15000){
+  return new Promise((resolve,reject)=>{
+    const cb='hkcb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const q=new URLSearchParams({...params,callback:cb});
+    let done=false;
+    const cleanup=()=>{if(done)return;done=true;clearTimeout(timer);delete window[cb];script.remove()};
+    const timer=setTimeout(()=>{cleanup();reject(new Error('Google Sheets connection timed out'))},timeoutMs);
+    window[cb]=data=>{cleanup();resolve(data)};
+    script.onerror=()=>{cleanup();reject(new Error('Google Sheets connection failed'))};
+    script.src=API+'?'+q.toString();
+    document.body.appendChild(script);
   });
-  if(!data.success) throw new Error(data.error||'Save failed');
-  return data.transaction;
-}
-
-async function deleteFromGoogle(id){
-  setConnection('Deleting from Google Sheets…','orange');
-  const data=await jsonp({action:'delete',id:String(id)});
-  if(!data.success) throw new Error(data.error||'Delete failed');
 }
 
 function setConnection(text,color){
   let el=document.getElementById('connectionStatus');
   if(!el){
     const top=document.querySelector('.top');
-    el=document.createElement('div'); el.id='connectionStatus'; el.className='small';
-    top.appendChild(el);
+    el=document.createElement('div');el.id='connectionStatus';el.className='small';top.appendChild(el);
   }
   el.textContent='● '+text;
   el.className='small '+color;
+}
+function updateSyncStatus(){
+  if(syncing)setConnection('Syncing '+syncQueue.length+' transaction(s)…','orange');
+  else if(syncQueue.length)setConnection(syncQueue.length+' pending — saved on this device','orange');
+  else setConnection('Synced with Google Sheets','green');
+}
+function normalize(row){
+  return {
+    id:String(row.id||makeId()),date:String(row.date||'').slice(0,10),amount:Number(row.amount||0),
+    owner:row.person||'You',type:row.type||'income',source:row.category||'Other',
+    method:row.account||'Bank',note:row.note||'',syncStatus:'synced'
+  };
+}
+
+async function loadFromGoogle(){
+  try{
+    const data=await jsonp({action:'get'},12000);
+    if(!data.success)throw new Error(data.error||'Unable to read Sheet');
+    const server=(data.transactions||[]).map(normalize);
+    const pendingIds=new Set(syncQueue.map(x=>String(x.id)));
+    const serverIds=new Set(server.map(x=>String(x.id)));
+    // Server is the source of truth for synced records. Keep only local pending records
+    // that are not yet on the server.
+    const pendingLocal=tx.filter(x=>pendingIds.has(String(x.id))&&!serverIds.has(String(x.id)))
+      .map(x=>({...x,syncStatus:'pending'}));
+    tx=[...server,...pendingLocal];
+    saveLocal();
+    render();
+    updateSyncStatus();
+    syncQueueNow();
+  }catch(e){
+    console.error(e);
+    setConnection(syncQueue.length?syncQueue.length+' pending — Google unavailable':'Google unavailable — local mode','red');
+  }
+}
+
+async function syncBatch(items){
+  const payload=JSON.stringify(items.map(x=>({
+    id:x.id,date:x.date,person:x.owner,account:x.method,type:x.type,
+    category:x.source,amount:x.amount,note:x.note
+  })));
+  const data=await jsonp({action:'addBatch',data:payload},20000);
+  if(!data.success)throw new Error(data.error||'Batch save failed');
+  return data;
+}
+
+async function syncQueueNow(){
+  if(syncing||!navigator.onLine||!syncQueue.length){updateSyncStatus();return;}
+  syncing=true;
+  updateSyncStatus();
+  try{
+    // Send up to 10 pending transactions in ONE Apps Script request.
+    while(syncQueue.length&&navigator.onLine){
+      const batch=syncQueue.slice(0,10);
+      const result=await syncBatch(batch);
+      const savedIds=new Set((result.savedIds||batch.map(x=>x.id)).map(String));
+      tx=tx.map(x=>savedIds.has(String(x.id))?{...x,syncStatus:'synced'}:x);
+      syncQueue=syncQueue.filter(x=>!savedIds.has(String(x.id)));
+      saveLocal();saveQueue();render();updateSyncStatus();
+      if(!savedIds.size)break;
+    }
+  }catch(e){
+    console.error('Batch sync failed:',e);
+    setConnection(syncQueue.length+' pending — retrying automatically','orange');
+  }finally{
+    syncing=false;
+    updateSyncStatus();
+  }
+}
+
+function queueTransaction(item){
+  item.syncStatus='pending';
+  tx.push(item);
+  syncQueue.push(item);
+  saveLocal();saveQueue();render();
+  // Do not await this. Save is already complete locally.
+  setTimeout(syncQueueNow,0);
+}
+
+function markPendingForDelete(id){
+  syncQueue=syncQueue.filter(x=>String(x.id)!==String(id));
+  saveQueue();
+}
+
+async function deleteFromGoogle(id){
+  const data=await jsonp({action:'delete',id:String(id)},15000);
+  if(!data.success)throw new Error(data.error||'Delete failed');
 }
 
 function render(){
  const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0), paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0), balance=received-paid;
  document.getElementById('summary').innerHTML=`<div class="card"><div class="label">Ledger Balance</div><div class="big">${rs(balance)}</div></div><div class="card"><div class="label">Total Received</div><div class="big green">${rs(received)}</div></div><div class="card"><div class="label">Total Paid</div><div class="big red">${rs(paid)}</div></div><div class="card"><div class="label">Transactions</div><div class="big">${tx.length}</div></div>`;
- const owners={}; tx.forEach(x=>{owners[x.owner]=(owners[x.owner]||0)+(x.type==='expense'?-x.amount:x.amount)});
+ const owners={};tx.forEach(x=>{owners[x.owner]=(owners[x.owner]||0)+(x.type==='expense'?-x.amount:x.amount)});
  document.getElementById('owners').innerHTML=Object.keys(owners).length?Object.entries(owners).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="personrow"><span>${esc(k)}</span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`).join(''):'<div class="empty">No transactions</div>';
- const recent=[...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id))).slice(0,8); document.getElementById('recent').innerHTML=table(recent);
+ const recent=[...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.id).localeCompare(String(a.id))).slice(0,8);document.getElementById('recent').innerHTML=table(recent);
  document.getElementById('allTransactions').innerHTML=table(filtered());
- const people=[...new Set(tx.map(x=>x.owner))].sort(); document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join(''); document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
+ const people=[...new Set(tx.map(x=>x.owner))].sort();document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join('');document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
  document.getElementById('peopleList').innerHTML=people.map(p=>{let v=tx.filter(x=>x.owner===p).reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0);return `<div class="personrow"><span><b>${esc(p)}</b><br><span class="muted small">${tx.filter(x=>x.owner===p).length} transactions</span></span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`}).join('')||'<div class="empty">No people yet</div>';
- const tuition=tx.filter(x=>String(x.source).toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0); const ms=tx.filter(x=>['momos','food cart'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0); const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0); document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
- monthly(); recon();
+ const tuition=tx.filter(x=>String(x.source).toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0);const ms=tx.filter(x=>['momos','food cart'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0);const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0);document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
+ monthly();recon();
 }
-function filtered(){const q=(document.getElementById('search')?.value||'').toLowerCase(), p=document.getElementById('personFilter')?.value||'', t=document.getElementById('typeFilter')?.value||'';return [...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))).filter(x=>(!q||[x.owner,x.source,x.note,x.method].join(' ').toLowerCase().includes(q))&&(!p||x.owner===p)&&(!t||x.type===t))}
+function filtered(){const q=(document.getElementById('search')?.value||'').toLowerCase(),p=document.getElementById('personFilter')?.value||'',t=document.getElementById('typeFilter')?.value||'';return [...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))).filter(x=>(!q||[x.owner,x.source,x.note,x.method].join(' ').toLowerCase().includes(q))&&(!p||x.owner===p)&&(!t||x.type===t))}
 function table(arr){if(!arr.length)return '<div class="empty">No transactions found.</div>';return `<div class="tablewrap"><table class="table"><thead><tr><th>Date</th><th>Owner</th><th>Source</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${arr.map(x=>`<tr><td>${esc(x.date)}</td><td>${esc(x.owner)}</td><td>${esc(x.source)}</td><td><span class="pill ${x.type==='income'?'in':x.type==='expense'?'out':'transfer'}">${esc(x.type)}</span></td><td class="${x.type==='expense'?'red':'green'}"><b>${x.type==='expense'?'-':''}${rs(x.amount)}</b></td><td>${esc(x.note||'')}</td><td><button class="small danger" onclick="del('${esc(x.id)}')">Delete</button></td></tr>`).join('')}</tbody></table></div>`}
 function monthly(){const m={};tx.forEach(x=>{const k=String(x.date).slice(0,7);m[k]??={in:0,out:0};if(x.type==='income')m[k].in+=x.amount;else if(x.type==='expense')m[k].out+=x.amount});document.getElementById('monthly').innerHTML=Object.entries(m).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>`<div class="personrow"><b>${k}</b><span>Received <span class="green">${rs(v.in)}</span> · Paid <span class="red">${rs(v.out)}</span> · Net <b>${rs(v.in-v.out)}</b></span></div>`).join('')||'<div class="empty">No data</div>'}
 function recon(){const b=parseFloat(document.getElementById('bankBalance').value);const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0),paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0),ledger=received-paid;if(!isNaN(b))document.getElementById('recon').innerHTML=`<b>App ledger:</b> ${rs(ledger)}<br><b>Difference:</b> <span class="${Math.abs(b-ledger)<.01?'green':'red'}">${rs(b-ledger)}</span>`;else document.getElementById('recon').innerHTML='<span class="muted small">Enter a bank balance to check.</span>'}
 function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=new Date().toISOString().slice(0,10);document.getElementById('fAmount').focus()}
 function closeModal(){document.getElementById('modal').classList.remove('show')}
-async function del(id){if(!confirm('Delete this transaction?'))return;tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();updateSyncStatus();try{await deleteFromGoogle(id);updateSyncStatus()}catch(e){console.error(e);setConnection('Delete pending — Google unavailable','orange')}}
+async function del(id){
+ if(!confirm('Delete this transaction?'))return;
+ tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();
+ try{await deleteFromGoogle(id);updateSyncStatus()}catch(e){console.error(e);setConnection('Delete may be pending — retry if needed','orange')}
+}
 document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
-document.getElementById('save').onclick=()=>{const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');const item={id:makeId(),date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:document.getElementById('fSource').value.trim()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};const btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saved ✓';queueTransaction(item);closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');setConnection('Saved on device — syncing in background','orange');setTimeout(syncQueueNow,50);setTimeout(()=>{btn.disabled=false;btn.textContent='Save Transaction'},300)};
-
+document.getElementById('save').onclick=()=>{
+ const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');
+ const item={id:makeId(),date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:document.getElementById('fSource').value.trim()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};
+ const btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saved ✓';
+ queueTransaction(item);
+ closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');
+ setConnection('Saved on device — syncing in background','orange');
+ setTimeout(()=>{btn.disabled=false;btn.textContent='Save Transaction'},300);
+};
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(b.dataset.view).classList.add('active');render()});
-render();
-updateSyncStatus();
-loadFromGoogle();
+render();updateSyncStatus();
+// Reconcile with Google in the background; never block the initial UI.
+setTimeout(loadFromGoogle,100);
 window.addEventListener('online',()=>syncQueueNow());
 window.addEventListener('offline',()=>updateSyncStatus());
-setInterval(()=>syncQueueNow(),30000);
+setInterval(()=>syncQueueNow(),15000);
 </script>
 </body></html>
