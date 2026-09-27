@@ -22,28 +22,27 @@
 <div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0">Add Transaction</h2><div class="form"><div><label>Date</label><input id="fDate" type="date"></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><input id="fSource" list="sourceOptions" placeholder="Tuition, Momos, Papa..."><datalist id="sourceOptions"><option>Tuition</option><option>Momos</option><option>Food Cart</option><option>Family</option><option>Grocery</option><option>Rent</option><option>Raw Material</option><option>Other</option></datalist></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbyGjhpK51mHhgBKonDNer-T_RGci0v_69JYJgPp42XCViOpbd7G1QZp0tlK20erV2AS/exec';
-const KEY='hisab_kitab_v2';
+const KEY='hisab_kitab_v3';
+const QUEUE_KEY='hisab_kitab_sync_queue_v1';
 let tx=JSON.parse(localStorage.getItem(KEY)||'[]');
-let loading=true;
-
+let syncQueue=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');
+let syncing=false;
+let loading=false;
 const rs=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n||0);
 function saveLocal(){localStorage.setItem(KEY,JSON.stringify(tx));}
+function saveQueue(){localStorage.setItem(QUEUE_KEY,JSON.stringify(syncQueue));}
 function esc(s){return String(s??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
-
-function jsonp(params){
-  return new Promise((resolve,reject)=>{
-    const cb='hkcb_'+Date.now()+'_'+Math.random().toString(36).slice(2);
-    const script=document.createElement('script');
-    const q=new URLSearchParams({...params,callback:cb});
-    const timer=setTimeout(()=>{cleanup();reject(new Error('Google Sheets connection timed out'));},15000);
-    function cleanup(){clearTimeout(timer);delete window[cb];script.remove();}
-    window[cb]=(data)=>{cleanup();resolve(data)};
-    script.onerror=()=>{cleanup();reject(new Error('Google Sheets connection failed'))};
-    script.src=API+'?'+q.toString();
-    document.body.appendChild(script);
-  });
-}
-
+function makeId(){return crypto?.randomUUID?crypto.randomUUID():'TX-'+Date.now()+'-'+Math.random().toString(36).slice(2,10)}
+function jsonp(params,timeoutMs=15000){return new Promise((resolve,reject)=>{const cb='hkcb_'+Date.now()+'_'+Math.random().toString(36).slice(2);const script=document.createElement('script');const q=new URLSearchParams({...params,callback:cb});const timer=setTimeout(()=>{cleanup();reject(new Error('Google Sheets connection timed out'));},timeoutMs);function cleanup(){clearTimeout(timer);delete window[cb];script.remove()}window[cb]=d=>{cleanup();resolve(d)};script.onerror=()=>{cleanup();reject(new Error('Google Sheets connection failed'))};script.src=API+'?'+q.toString();document.body.appendChild(script)})}
+function normalize(row){return {id:String(row.id||makeId()),date:String(row.date||'').slice(0,10),amount:Number(row.amount||0),owner:row.person||'You',type:row.type||'income',source:row.category||'Other',method:row.account||'Bank',note:row.note||'',syncStatus:'synced'}}
+function setConnection(text,color){let el=document.getElementById('connectionStatus');if(!el){const top=document.querySelector('.top');el=document.createElement('div');el.id='connectionStatus';el.className='small';top.appendChild(el)}el.textContent='● '+text;el.className='small '+color}
+function updateSyncStatus(){if(syncing)setConnection('Syncing to Google Sheets…','orange');else if(syncQueue.length)setConnection(syncQueue.length+' pending — saved on this device','orange');else setConnection('Synced with Google Sheets','green')}
+async function loadFromGoogle(){updateSyncStatus();try{const data=await jsonp({action:'get'},12000);if(!data.success)throw new Error(data.error||'Unable to read Sheet');const server=(data.transactions||[]).map(normalize);const queued=new Set(syncQueue.map(x=>String(x.id)));const merged=[...server];for(const item of tx)if(!merged.some(x=>String(x.id)===String(item.id)))merged.push(item);tx=merged.map(x=>queued.has(String(x.id))?{...x,syncStatus:'pending'}:x);saveLocal();render();updateSyncStatus();syncQueueNow()}catch(e){setConnection(syncQueue.length?syncQueue.length+' pending — Google unavailable':'Google unavailable — local mode','red');console.error(e)}}
+async function addToGoogle(item){const data=await jsonp({action:'add',id:item.id,date:item.date,person:item.owner,account:item.method,type:item.type,category:item.source,amount:item.amount,note:item.note},15000);if(!data.success)throw new Error(data.error||'Save failed');return data.transaction}
+async function deleteFromGoogle(id){const data=await jsonp({action:'delete',id:String(id)},15000);if(!data.success)throw new Error(data.error||'Delete failed')}
+async function syncQueueNow(){if(syncing||!navigator.onLine||!syncQueue.length){updateSyncStatus();return}syncing=true;updateSyncStatus();while(syncQueue.length&&navigator.onLine){const item=syncQueue[0];try{const server=await addToGoogle(item);tx=tx.map(x=>String(x.id)===String(item.id)?{...x,id:String(server?.id||item.id),syncStatus:'synced'}:x);syncQueue.shift();saveQueue();saveLocal();render()}catch(e){console.error('Sync failed:',e);break}}syncing=false;updateSyncStatus()}
+function queueTransaction(item){item.syncStatus='pending';tx.push(item);syncQueue.push(item);saveLocal();saveQueue();render();syncQueueNow()}
+function markPendingForDelete(id){syncQueue=syncQueue.filter(x=>String(x.id)!==String(id));saveQueue()}
 function normalize(row){
   const d=String(row.date||'').slice(0,10);
   return {
@@ -113,20 +112,16 @@ function monthly(){const m={};tx.forEach(x=>{const k=String(x.date).slice(0,7);m
 function recon(){const b=parseFloat(document.getElementById('bankBalance').value);const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0),paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0),ledger=received-paid;if(!isNaN(b))document.getElementById('recon').innerHTML=`<b>App ledger:</b> ${rs(ledger)}<br><b>Difference:</b> <span class="${Math.abs(b-ledger)<.01?'green':'red'}">${rs(b-ledger)}</span>`;else document.getElementById('recon').innerHTML='<span class="muted small">Enter a bank balance to check.</span>'}
 function openModal(){document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=new Date().toISOString().slice(0,10);document.getElementById('fAmount').focus()}
 function closeModal(){document.getElementById('modal').classList.remove('show')}
-async function del(id){if(!confirm('Delete this transaction from Google Sheet?'))return;try{await deleteFromGoogle(id);tx=tx.filter(x=>String(x.id)!==String(id));saveLocal();setConnection('Connected to Google Sheets','green');render()}catch(e){alert(e.message);setConnection('Google Sheets unavailable','red')}}
+async function del(id){if(!confirm('Delete this transaction?'))return;tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();updateSyncStatus();try{await deleteFromGoogle(id);updateSyncStatus()}catch(e){console.error(e);setConnection('Delete pending — Google unavailable','orange')}}
 document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
-document.getElementById('save').onclick=async()=>{
- const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');
- const item={date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:document.getElementById('fSource').value.trim()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim()};
- const btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saving…';
- try{
-   const server=await addToGoogle(item);
-   item.id=server?.id||Date.now();tx.push(item);saveLocal();closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');setConnection('Connected to Google Sheets','green');render();
- }catch(e){alert('Save nahi hua: '+e.message);setConnection('Google Sheets unavailable','red')}
- btn.disabled=false;btn.textContent='Save Transaction';
-};
+document.getElementById('save').onclick=()=>{const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');const item={id:makeId(),date:document.getElementById('fDate').value||new Date().toISOString().slice(0,10),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:document.getElementById('fSource').value.trim()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};const btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saved ✓';queueTransaction(item);closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');setConnection('Saved on device — syncing in background','orange');setTimeout(syncQueueNow,50);setTimeout(()=>{btn.disabled=false;btn.textContent='Save Transaction'},300)};
+
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(b.dataset.view).classList.add('active');render()});
 render();
+updateSyncStatus();
 loadFromGoogle();
+window.addEventListener('online',()=>syncQueueNow());
+window.addEventListener('offline',()=>updateSyncStatus());
+setInterval(()=>syncQueueNow(),30000);
 </script>
 </body></html>
