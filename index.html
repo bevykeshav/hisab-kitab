@@ -19,7 +19,8 @@
 <section id="transactions" class="view"><div class="top"><h1>Transactions</h1><button class="btn" id="addBtn2">+ Add Transaction</button></div><div class="card"><div class="filters"><input id="search" placeholder="Search note, person, source..."><select id="personFilter"><option value="">All people</option></select><select id="typeFilter"><option value="">All types</option><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></div><div id="allTransactions"></div></div></section>
 <section id="people" class="view"><div class="top"><h1>People / Owners</h1></div><div class="card"><p class="muted">These are the people whose money can be tracked separately. Edit the list inside the app by adding transactions with a new owner name.</p><div id="peopleList"></div></div></section>
 <section id="business" class="view"><div class="top"><h1>Businesses</h1></div><div class="grid"><div class="card"><div class="label">Tuition income</div><div class="big" id="tuitionTotal">₹0</div><div class="muted small">All transactions marked Tuition</div></div><div class="card"><div class="label">Momos sales</div><div class="big" id="momosSales">₹0</div><div class="muted small">Business income</div></div><div class="card"><div class="label">Momos expenses</div><div class="big red" id="momosExp">₹0</div><div class="muted small">Business expenses</div></div><div class="card"><div class="label">Momos net</div><div class="big green" id="momosNet">₹0</div><div class="muted small">Sales minus expenses</div></div></div></section>
-<section id="reports" class="view"><div class="top"><h1>Reports</h1></div><div class="card"><h2>Monthly Summary</h2><div id="monthly"></div></div></section>
+<section id="reports" class="view"><div class="top"><h1>Reports</h1></div>
+<div class="card" style="margin-bottom:15px"><h2 style="margin:0 0 12px;font-size:18px">Date Range Report (kab se kab tak)</h2><div class="filters" style="margin-bottom:10px"><div><label class="small muted">From</label><input id="rFrom" type="date"></div><div><label class="small muted">To</label><input id="rTo" type="date"></div></div><div class="filters" style="margin-bottom:12px"><button class="btn secondary" onclick="setRange('today')">Aaj</button><button class="btn secondary" onclick="setRange('month')">Is mahine</button><button class="btn secondary" onclick="setRange('last')">Pichla mahina</button><button class="btn secondary" onclick="setRange('all')">Sab</button></div><div id="rangeBox"></div></div><div class="card"><h2>Monthly Summary</h2><div id="monthly"></div></div></section>
 </main></div>
 <div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0">Add Transaction</h2><div class="form"><div><label>Date (entry kis din ki hai?)</label><input id="fDate" type="date"><div id="dateHint" class="small" style="margin-top:6px;padding:6px 8px;border-radius:8px"></div></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><input id="fSource" list="sourceOptions" placeholder="Tuition, Momos, Papa..."><datalist id="sourceOptions"><option>Tuition</option><option>Momos</option><option>Food Cart</option><option>Family</option><option>Grocery</option><option>Rent</option><option>Raw Material</option><option>Other</option></datalist></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
 <script>
@@ -158,7 +159,25 @@ function render(){
  const people=[...new Set(tx.map(x=>x.owner))].sort();document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join('');document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
  document.getElementById('peopleList').innerHTML=people.map(p=>{let v=tx.filter(x=>x.owner===p).reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0);return `<div class="personrow"><span><b>${esc(p)}</b><br><span class="muted small">${tx.filter(x=>x.owner===p).length} transactions</span></span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`}).join('')||'<div class="empty">No people yet</div>';
  const tuition=tx.filter(x=>String(x.source).toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0);const ms=tx.filter(x=>['momos','food cart'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0);const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0);document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
- monthly();recon();party();
+ monthly();recon();party();rangeReport();
+}
+function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fmtD(v){if(!v)return '…';const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
+function setRange(k){
+ const n=new Date(),f=document.getElementById('rFrom'),t=document.getElementById('rTo');
+ if(k==='today'){f.value=t.value=ymd(n)}
+ else if(k==='month'){f.value=ymd(new Date(n.getFullYear(),n.getMonth(),1));t.value=ymd(n)}
+ else if(k==='last'){f.value=ymd(new Date(n.getFullYear(),n.getMonth()-1,1));t.value=ymd(new Date(n.getFullYear(),n.getMonth(),0))}
+ else{f.value='';t.value=''}
+ rangeReport();
+}
+function rangeReport(){
+ const f=document.getElementById('rFrom').value,t=document.getElementById('rTo').value,box=document.getElementById('rangeBox');
+ const m=tx.filter(x=>{const d=String(x.date).slice(0,10);return (!f||d>=f)&&(!t||d<=t)});
+ const inc=m.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0),exp=m.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
+ const agg=key=>{const o={};m.forEach(x=>{const k=x[key]||'—';o[k]??={in:0,out:0,n:0};if(x.type==='income')o[k].in+=x.amount;else if(x.type==='expense')o[k].out+=x.amount;o[k].n++});return Object.entries(o).sort((a,b)=>(b[1].in+b[1].out)-(a[1].in+a[1].out))};
+ const tb=(title,rows)=>`<h2 style="font-size:16px;margin:18px 0 8px">${title}</h2>`+(rows.length?`<div class="tablewrap"><table class="table"><thead><tr><th>Naam</th><th>Aaya</th><th>Gaya</th><th>Net</th><th>Entries</th></tr></thead><tbody>${rows.map(([k,v])=>`<tr><td><b>${esc(k)}</b></td><td class="green">${rs(v.in)}</td><td class="red">${rs(v.out)}</td><td class="${v.in-v.out<0?'red':'green'}"><b>${rs(v.in-v.out)}</b></td><td>${v.n}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">Is date range me koi entry nahi</div>');
+ box.innerHTML=`<div class="muted small" style="margin-bottom:10px">${fmtD(f)} se ${fmtD(t)} tak · Transfer ko Aaya/Gaya me nahi gina gaya</div><div class="grid"><div class="card"><div class="label">Total Aaya</div><div class="big green">${rs(inc)}</div></div><div class="card"><div class="label">Total Gaya</div><div class="big red">${rs(exp)}</div></div><div class="card"><div class="label">Net</div><div class="big ${inc-exp<0?'red':'green'}">${rs(inc-exp)}</div></div><div class="card"><div class="label">Entries</div><div class="big">${m.length}</div></div></div>`+tb('Owner-wise',agg('owner'))+tb('Source-wise',agg('source'));
 }
 function party(){
  const sel=document.getElementById('partySel'),box=document.getElementById('partyBox');
@@ -198,7 +217,7 @@ async function del(id){
  tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();
  try{await deleteFromGoogle(id);updateSyncStatus()}catch(e){console.error(e);setConnection('Delete may be pending — retry if needed','orange')}
 }
-document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('partySel').onchange=party;document.getElementById('fDate').oninput=updateDateHint;['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
+document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('partySel').onchange=party;document.getElementById('fDate').oninput=updateDateHint;['rFrom','rTo'].forEach(id=>document.getElementById(id).oninput=rangeReport);['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
 document.getElementById('save').onclick=()=>{
  const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');
  const di=dateInfo(document.getElementById('fDate').value||todayLocal());
@@ -211,7 +230,7 @@ document.getElementById('save').onclick=()=>{
  setTimeout(()=>{btn.disabled=false;btn.textContent='Save Transaction'},300);
 };
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.nav button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.getElementById(b.dataset.view).classList.add('active');render()});
-render();updateSyncStatus();
+setRange('month');render();updateSyncStatus();
 // Reconcile with Google in the background; never block the initial UI.
 setTimeout(loadFromGoogle,100);
 window.addEventListener('online',()=>syncQueueNow());
