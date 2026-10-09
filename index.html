@@ -71,9 +71,15 @@ function updateSyncStatus(){
   else if(syncQueue.length)setConnection(syncQueue.length+' pending — saved on this device','orange');
   else setConnection('Synced with Google Sheets','green');
 }
+function normDate(v){
+  const s=String(v||'');
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
+  const d=new Date(s);
+  return isNaN(d)?s.slice(0,10):ymd(d);
+}
 function normalize(row){
   return {
-    id:String(row.id||makeId()),date:String(row.date||'').slice(0,10),amount:Number(row.amount||0),
+    id:String(row.id||makeId()),date:normDate(row.date),amount:Number(row.amount||0),
     owner:row.person||'You',type:row.type||'income',source:row.category||'Other',
     method:row.account||'Bank',note:row.note||'',syncStatus:'synced'
   };
@@ -218,7 +224,7 @@ function weekly(){
   if(prev){const gap=Math.round((toDate(w.from)-toDate(prev.to))/86400000);if(gap<=0)warn='⚠️ Pichle week se date overlap ho rahi hai';else if(gap>1)warn='⚠️ Pichle week ke baad '+(gap-1)+' din ka gap hai — un dino ki entries kisi week me nahi gini gayi'}
   prev=w;
   const row=(l,v,c)=>`<div class="personrow" style="padding:8px 0"><span>${l}</span><b class="${c||''}">${v}</b></div>`;
-  return `<div class="card" style="margin-top:12px"><div class="personrow" style="border:0;padding:0 0 6px"><b>📅 ${fmtD(w.from)} se ${fmtD(w.to)}</b><button class="small danger" style="padding:6px 10px;border-radius:8px" onclick="delW('${esc(w.id)}')">Delete</button></div>${warn?`<div class="small orange" style="margin-bottom:6px">${warn}</div>`:''}${row('Opening (pichle week se aaya)',rs(open),open<0?'red':'')}${row('+ Sale (aaya)',rs(sale),'green')}${row('− Expense (gaya)',rs(exp),'red')}${row('Is week ka Net',rs(net),net<0?'red':'green')}<div class="personrow" style="border:0;padding:10px 0 0"><span><b>Closing → agle week me jayega</b></span><b class="${close<0?'red':'green'}" style="font-size:20px">${rs(close)}</b></div><div class="muted small">${m.length} entries</div></div>`
+  return `<div class="card" style="margin-top:12px"><div class="personrow" style="border:0;padding:0 0 6px"><b>📅 ${fmtD(w.from)} se ${fmtD(w.to)}</b><button class="small danger" style="padding:6px 10px;border-radius:8px" onclick="delW('${esc(w.id)}')">Delete</button></div>${warn?`<div class="small orange" style="margin-bottom:6px">${warn}</div>`:''}${row('Opening (pichle week se aaya)',rs(open),open<0?'red':'')}${row('+ Sale (aaya)',rs(sale),'green')}${row('− Expense (gaya)',rs(exp),'red')}${row('Is week ka Net',rs(net),net<0?'red':'green')}<div class="personrow" style="border:0;padding:10px 0 0"><span><b>Closing → agle week me jayega</b></span><b class="${close<0?'red':'green'}" style="font-size:20px">${rs(close)}</b></div><details style="margin-top:8px"><summary class="small muted" style="cursor:pointer">${m.length} entries dekho (kaunsi gini gayi)</summary>${[...m].sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(x=>`<div class="personrow" style="padding:6px 0${x.type==='transfer'?';opacity:.5':''}"><span class="small">${esc(x.date)} · ${esc(x.owner)} · ${esc(x.source)}${x.note?' · '+esc(x.note):''}${x.type==='transfer'?' <i>(transfer — gina nahi)</i>':''}</span><b class="${x.type==='expense'?'red':'green'} small">${x.type==='expense'?'−':'+'}${rs(x.amount)}</b></div>`).join('')}</details></div>`
  });
  box.innerHTML=list.length?`<div class="card" style="background:#eff6ff;border-color:#bfdbfe"><div class="label">Abhi tak ka balance (${sel.value?esc(sel.value):'Sab owners'})</div><div class="big ${carry<0?'red':'green'}">${rs(carry)}</div><div class="muted small">Ye amount aakhri week se agle week me shift hoga</div></div>`+cards.join(''):'<div class="empty">Abhi koi week nahi hai. Upar se week ki From aur To date daal ke add karo.</div>';
 }
