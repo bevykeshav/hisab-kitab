@@ -27,7 +27,7 @@
 <div class="filters" style="margin-bottom:0"><div><label class="small muted">Week From</label><input id="wFrom" type="date"></div><div><label class="small muted">Week To</label><input id="wTo" type="date"></div><div style="align-self:flex-end"><button class="btn" id="wAdd">+ Week add karo</button></div></div></div>
 <div id="weeklyBox"></div></section>
 </main></div>
-<div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0" id="modalTitle">Add Transaction</h2><div class="form"><div><label>Date (entry kis din ki hai?)</label><input id="fDate" type="date"><div id="dateHint" class="small" style="margin-top:6px;padding:6px 8px;border-radius:8px"></div></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><input id="fSource" list="sourceOptions" placeholder="Tuition, Momos, Papa..."><datalist id="sourceOptions"><option>Tuition</option><option>Momos</option><option>Food Cart</option><option>Family</option><option>Grocery</option><option>Rent</option><option>Raw Material</option><option>Other</option></datalist></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
+<div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0" id="modalTitle">Add Transaction</h2><div class="form"><div><label>Date (entry kis din ki hai?)</label><input id="fDate" type="date"><div id="dateHint" class="small" style="margin-top:6px;padding:6px 8px;border-radius:8px"></div></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><select id="fSourceSel"></select><input id="fSource" placeholder="Naya source ka naam likho" style="display:none;margin-top:6px"></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbyGjhpK51mHhgBKonDNer-T_RGci0v_69JYJgPp42XCViOpbd7G1QZp0tlK20erV2AS/exec';
 const KEY='hisab_kitab_v3';
@@ -181,7 +181,7 @@ function editTx(id){
   document.getElementById('fAmount').value=x.amount;
   document.getElementById('fOwner').value=x.owner;
   document.getElementById('fType').value=x.type;
-  document.getElementById('fSource').value=x.source;
+  setSourceVal(x.source);
   document.getElementById('fMethod').value=x.method;
   document.getElementById('fNote').value=x.note||'';
   document.getElementById('modalTitle').textContent='Edit Transaction';
@@ -307,14 +307,36 @@ function updateDateHint(){
  const i=dateInfo(document.getElementById('fDate').value),el=document.getElementById('dateHint');
  el.textContent=i.text;el.style.background=i.warn?'#ffedd5':'#dcfce7';el.style.color=i.warn?'#9a3412':'#166534';el.style.fontWeight='700';
 }
-function openModal(){editingId=null;document.getElementById('modalTitle').textContent='Add Transaction';document.getElementById('save').textContent='Save Transaction';document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=todayLocal();updateDateHint();document.getElementById('fAmount').focus()}
+function fillSources(keep){
+  const cnt={};['Tuition','Momos','Food Cart','Family','Grocery','Rent','Raw Material','Other'].forEach(n=>cnt[n]=0);
+  tx.forEach(x=>{if(x.source)cnt[x.source]=(cnt[x.source]||0)+1});
+  const names=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||String(a).localeCompare(String(b)));
+  const sel=document.getElementById('fSourceSel');
+  sel.innerHTML='<option value="">-- Source chuno --</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')+'<option value="__new">➕ Naya source likhna hai</option>';
+  sel.value=keep&&names.includes(keep)?keep:'';
+  document.getElementById('fSource').style.display='none';
+}
+function onSourceChange(){
+  const sel=document.getElementById('fSourceSel'),t=document.getElementById('fSource');
+  if(sel.value==='__new'){t.style.display='block';t.focus()}else{t.style.display='none'}
+}
+function getSourceVal(){
+  const sel=document.getElementById('fSourceSel');
+  return sel.value==='__new'?document.getElementById('fSource').value.trim():sel.value;
+}
+function setSourceVal(v){
+  fillSources(v);
+  const sel=document.getElementById('fSourceSel');
+  if(v&&sel.value!==v){const o=document.createElement('option');o.value=v;o.textContent=v;sel.insertBefore(o,sel.querySelector('option[value="__new"]'));sel.value=v}
+}
+function openModal(){editingId=null;fillSources();document.getElementById('modalTitle').textContent='Add Transaction';document.getElementById('save').textContent='Save Transaction';document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=todayLocal();updateDateHint();document.getElementById('fAmount').focus()}
 function closeModal(){editingId=null;document.getElementById('modalTitle').textContent='Add Transaction';document.getElementById('save').textContent='Save Transaction';document.getElementById('modal').classList.remove('show')}
 async function del(id){
  if(!confirm('Delete this transaction?'))return;
  tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();
  try{await deleteFromGoogle(id);updateSyncStatus()}catch(e){console.error(e);setConnection('Delete may be pending — retry if needed','orange')}
 }
-document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('partySel').onchange=party;document.getElementById('fDate').oninput=updateDateHint;['rFrom','rTo','rOwner','rSource'].forEach(id=>document.getElementById(id).oninput=rangeReport);
+document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('partySel').onchange=party;document.getElementById('fSourceSel').onchange=onSourceChange;document.getElementById('fDate').oninput=updateDateHint;['rFrom','rTo','rOwner','rSource'].forEach(id=>document.getElementById(id).oninput=rangeReport);
 document.getElementById('wOwner').onchange=()=>{weeks.owner=document.getElementById('wOwner').value;saveWeeks();weekly()};
 document.getElementById('wOpen').oninput=()=>{const k=document.getElementById('wOwner').value||'__all',v=document.getElementById('wOpen').value;weeks.open[k]=v===''?0:Number(v);saveWeeks();weekly()};
 document.getElementById('wAdd').onclick=()=>{const f=document.getElementById('wFrom').value,t=document.getElementById('wTo').value;if(!f||!t)return alert('Week ki From aur To dono date daalo');if(f>t)return alert('From date, To date se pehle honi chahiye');weeks.list.push({id:makeId(),from:f,to:t});saveWeeks();document.getElementById('wFrom').value='';document.getElementById('wTo').value='';weekly()};['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
@@ -322,7 +344,7 @@ document.getElementById('save').onclick=()=>{
  const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');
  const di=dateInfo(document.getElementById('fDate').value||todayLocal());
  if(!confirm((editingId?'✏️ Edit update: ':'')+'⚠️ Ye entry '+di.fmt+' ('+di.label+') ki hai.\n\nAmount: '+rs(amount)+' · '+(document.getElementById('fOwner').value.trim()||'You')+'\n\nDate sahi hai? Sahi hai to OK dabao, nahi to Cancel karke date badlo.'))return;
- const item={id:editingId||makeId(),date:document.getElementById('fDate').value||todayLocal(),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:document.getElementById('fSource').value.trim()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};
+ const item={id:editingId||makeId(),date:document.getElementById('fDate').value||todayLocal(),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:getSourceVal()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};
  const btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saved ✓';
  if(editingId)updateTransaction(item);else queueTransaction(item);
  closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');
