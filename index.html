@@ -11,7 +11,7 @@
 <body>
 <div class="app">
 <aside class="side"><div class="brand">Hisab Kitab<small>Family + Business Ledger</small></div><div class="nav">
-<button class="active" data-view="dashboard">Dashboard</button><button data-view="transactions">Transactions</button><button data-view="people">People / Owners</button><button data-view="business">Businesses</button><button data-view="reports">Reports</button><button data-view="weekly">Weekly Close</button>
+<button class="active" data-view="dashboard">Dashboard</button><button data-view="transactions">Transactions</button><button data-view="people">People / Owners</button><button data-view="business">Businesses</button><button data-view="reports">Reports</button><button data-view="weekly">Weekly Close</button><button data-view="erase">Data Erase</button>
 </div></aside>
 <main class="main">
 <section id="dashboard" class="view active"><div class="top"><h1>Dashboard</h1><button class="btn" id="addBtn">+ Add Transaction</button></div>
@@ -26,6 +26,12 @@
 <div class="card" style="margin-bottom:15px"><div class="filters" style="margin-bottom:10px"><div><label class="small muted">Owner (kiska hisab)</label><select id="wOwner"></select></div><div><label class="small muted">Shuruwati balance (pehle week se pehle ka)</label><input id="wOpen" type="number" placeholder="0"></div></div>
 <div class="filters" style="margin-bottom:0"><div><label class="small muted">Week From</label><input id="wFrom" type="date"></div><div><label class="small muted">Week To</label><input id="wTo" type="date"></div><div style="align-self:flex-end"><button class="btn" id="wAdd">+ Week add karo</button></div></div></div>
 <div id="weeklyBox"></div></section>
+<section id="erase" class="view"><div class="top"><h1>Data Erase</h1></div>
+<div class="card"><h2 style="margin:0 0 6px;font-size:18px">Entries hamesha ke liye hatao</h2><p class="muted small" style="margin-top:0">Ye entries app se aur Google Sheet se bhi delete ho jayengi. Date khali chhodoge to us owner ki sab entries aayengi. Pehle backup download kar lena.</p>
+<div class="filters" style="margin-bottom:10px"><div><label class="small muted">From</label><input id="eFrom" type="date" oninput="eraseInfo()"></div><div><label class="small muted">To</label><input id="eTo" type="date" oninput="eraseInfo()"></div><div><label class="small muted">Owner</label><select id="eOwner" onchange="eraseInfo()"><option value="">Sab owners</option></select></div></div>
+<div id="eraseBox" style="margin-bottom:12px"></div>
+<div class="filters" style="margin-bottom:0"><button class="btn secondary" onclick="downloadBackup()">⬇️ Backup (CSV) download</button><button class="btn" style="background:#dc2626" onclick="eraseNow()">🗑️ Ye entries erase karo</button></div></div>
+<div class="card" style="margin-top:15px"><h2 style="margin:0 0 6px;font-size:18px">Weekly Close reset</h2><p class="muted small" style="margin-top:0">Sirf Weekly Close ke weeks aur shuruwati balance hatega. Transactions waise hi rahenge.</p><button class="btn secondary" onclick="resetWeeks()">Weeks reset karo</button></div></section>
 </main></div>
 <div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0" id="modalTitle">Add Transaction</h2><div class="form"><div><label>Date (entry kis din ki hai?)</label><input id="fDate" type="date"><div id="dateHint" class="small" style="margin-top:6px;padding:6px 8px;border-radius:8px"></div></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><select id="fSourceSel"></select><input id="fSource" placeholder="Naya source ka naam likho" style="display:none;margin-top:6px"></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
 <script>
@@ -35,6 +41,9 @@ const QUEUE_KEY='hisab_kitab_sync_queue_v2';
 let tx=JSON.parse(localStorage.getItem(KEY)||'[]');
 let syncQueue=JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]');
 let syncing=false;
+let delQueue=JSON.parse(localStorage.getItem('hisab_kitab_delq_v1')||'[]');
+let deleting=false;
+function saveDelQ(){localStorage.setItem('hisab_kitab_delq_v1',JSON.stringify(delQueue))}
 
 const rs=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n||0);
 function saveLocal(){localStorage.setItem(KEY,JSON.stringify(tx));}
@@ -67,6 +76,7 @@ function setConnection(text,color){
   el.className='small '+color;
 }
 function updateSyncStatus(){
+  if(delQueue.length){setConnection((deleting?'Delete ho raha hai — ':'Delete pending — ')+delQueue.length+' baaki','orange');return}
   if(syncing)setConnection('Syncing '+syncQueue.length+' transaction(s)…','orange');
   else if(syncQueue.length)setConnection(syncQueue.length+' pending — saved on this device','orange');
   else setConnection('Synced with Google Sheets','green');
@@ -89,7 +99,8 @@ async function loadFromGoogle(){
   try{
     const data=await jsonp({action:'get'},12000);
     if(!data.success)throw new Error(data.error||'Unable to read Sheet');
-    const server=(data.transactions||[]).map(normalize);
+    const delSet=new Set(delQueue.map(String));
+    const server=(data.transactions||[]).map(normalize).filter(x=>!delSet.has(String(x.id)));
     const pendingIds=new Set(syncQueue.map(x=>String(x.id)));
     const serverIds=new Set(server.map(x=>String(x.id)));
     const replaceIds=new Set(syncQueue.filter(x=>x.replace).map(x=>String(x.id)));
@@ -102,6 +113,7 @@ async function loadFromGoogle(){
     render();
     updateSyncStatus();
     syncQueueNow();
+    processDeletes();
   }catch(e){
     console.error(e);
     setConnection(syncQueue.length?syncQueue.length+' pending — Google unavailable':'Google unavailable — local mode','red');
@@ -188,6 +200,52 @@ function editTx(id){
   document.getElementById('save').textContent='Update Transaction';
   updateDateHint();
 }
+function queueDelete(ids){
+  ids.forEach(id=>{id=String(id);if(!delQueue.includes(id))delQueue.push(id)});
+  saveDelQ();updateSyncStatus();
+  processDeletes();
+}
+async function processDeletes(){
+  if(deleting||!navigator.onLine||!delQueue.length){return}
+  deleting=true;updateSyncStatus();
+  try{
+    while(delQueue.length&&navigator.onLine){
+      await deleteFromGoogle(delQueue[0]);
+      delQueue.shift();saveDelQ();updateSyncStatus();
+    }
+  }catch(e){console.error('Delete failed:',e)}
+  finally{deleting=false;updateSyncStatus()}
+}
+function eraseSet(){
+  const f=document.getElementById('eFrom').value,t=document.getElementById('eTo').value,o=document.getElementById('eOwner').value;
+  return tx.filter(x=>{const d=String(x.date).slice(0,10);return (!f||d>=f)&&(!t||d<=t)&&(!o||x.owner===o)});
+}
+function eraseInfo(){
+  const sel=document.getElementById('eOwner'),cur=sel.value;
+  const owners=[...new Set(tx.map(x=>x.owner).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
+  sel.innerHTML='<option value="">Sab owners</option>'+owners.map(o=>`<option>${esc(o)}</option>`).join('');sel.value=cur;
+  const m=eraseSet(),f=document.getElementById('eFrom').value,t=document.getElementById('eTo').value;
+  const inc=m.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0),exp=m.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0);
+  document.getElementById('eraseBox').innerHTML=`<div class="card" style="box-shadow:none;background:#fef2f2;border-color:#fecaca"><b>${m.length}</b> entries delete hongi · ${f||t?fmtD(f)+' se '+fmtD(t):'Sab dates'}${sel.value?' · '+esc(sel.value):''}<br><span class="small">Aaya <b class="green">${rs(inc)}</b> · Gaya <b class="red">${rs(exp)}</b></span></div>`;
+}
+function eraseNow(){
+  const m=eraseSet();
+  if(!m.length)return alert('Is selection me koi entry nahi hai');
+  const ans=prompt(m.length+' entries hamesha ke liye delete hongi (Google Sheet se bhi) aur wapas nahi aayengi.\n\nPakka karne ke liye ERASE likho:');
+  if(String(ans||'').trim().toUpperCase()!=='ERASE')return;
+  const ids=new Set(m.map(x=>String(x.id)));
+  tx=tx.filter(x=>!ids.has(String(x.id)));
+  syncQueue=syncQueue.filter(x=>!ids.has(String(x.id)));
+  saveLocal();saveQueue();render();
+  queueDelete([...ids]);
+}
+function downloadBackup(){
+  const rows=[['Date','Owner','Type','Source','Method','Amount','Note'],...[...tx].sort((a,b)=>String(a.date).localeCompare(String(b.date))).map(x=>[x.date,x.owner,x.type,x.source,x.method,x.amount,x.note||''])];
+  const csv='\ufeff'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\r\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='hisab-kitab-backup-'+todayLocal()+'.csv';
+  document.body.appendChild(a);a.click();a.remove();
+}
+function resetWeeks(){if(!confirm('Weekly Close ke saare weeks aur shuruwati balance hata dein? (Transactions delete nahi honge)'))return;weeks={list:[],open:{},owner:''};saveWeeks();weekly()}
 function markPendingForDelete(id){
   syncQueue=syncQueue.filter(x=>String(x.id)!==String(id));
   saveQueue();
@@ -208,7 +266,7 @@ function render(){
  const people=[...new Set(tx.map(x=>x.owner))].sort();document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join('');document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
  document.getElementById('peopleList').innerHTML=people.map(p=>{let v=tx.filter(x=>x.owner===p).reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0);return `<div class="personrow"><span><b>${esc(p)}</b><br><span class="muted small">${tx.filter(x=>x.owner===p).length} transactions</span></span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`}).join('')||'<div class="empty">No people yet</div>';
  const tuition=tx.filter(x=>String(x.source).toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0);const ms=tx.filter(x=>['momos','food cart'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0);const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0);document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
- monthly();recon();party();rangeReport();weekly();
+ monthly();recon();party();rangeReport();weekly();eraseInfo();
 }
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fmtD(v){if(!v)return '…';const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
@@ -334,7 +392,7 @@ function closeModal(){editingId=null;document.getElementById('modalTitle').textC
 async function del(id){
  if(!confirm('Delete this transaction?'))return;
  tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();
- try{await deleteFromGoogle(id);updateSyncStatus()}catch(e){console.error(e);setConnection('Delete may be pending — retry if needed','orange')}
+ queueDelete([id]);
 }
 document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('partySel').onchange=party;document.getElementById('fSourceSel').onchange=onSourceChange;document.getElementById('fDate').oninput=updateDateHint;['rFrom','rTo','rOwner','rSource'].forEach(id=>document.getElementById(id).oninput=rangeReport);
 document.getElementById('wOwner').onchange=()=>{weeks.owner=document.getElementById('wOwner').value;saveWeeks();weekly()};
@@ -355,8 +413,8 @@ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>{document.quer
 setRange('month');render();updateSyncStatus();
 // Reconcile with Google in the background; never block the initial UI.
 setTimeout(loadFromGoogle,100);
-window.addEventListener('online',()=>syncQueueNow());
+window.addEventListener('online',()=>{syncQueueNow();processDeletes()});
 window.addEventListener('offline',()=>updateSyncStatus());
-setInterval(()=>syncQueueNow(),15000);
+setInterval(()=>{syncQueueNow();processDeletes()},15000);
 </script>
 </body></html>
