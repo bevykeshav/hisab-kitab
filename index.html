@@ -49,6 +49,7 @@ input,select,textarea{font-size:16px!important}
 </div></aside>
 <main class="main">
 <section id="dashboard" class="view active"><div class="top"><h1>Dashboard</h1><button class="btn" id="addBtn">+ Add Transaction</button></div>
+<div id="dupBox"></div>
 <div class="card" style="margin-bottom:15px"><h2 style="margin:0 0 10px;font-size:18px">Kisne kitna? (Person / Source)</h2><div class="filters" style="margin-bottom:10px"><select id="partySel"><option value="">-- Select --</option></select></div><div id="partyBox" class="muted small">Naam select karo</div></div>
 <div class="grid" id="summary"></div><div class="two section"><div class="card"><h2>Money by Owner</h2><div id="owners"></div></div><div class="card"><h2>Quick Reconciliation</h2><p class="muted small">Enter the actual bank balance to compare it with the app ledger.</p><input id="bankBalance" type="number" placeholder="Actual bank balance" style="width:100%;padding:11px;border:1px solid #d1d5db;border-radius:9px"><div id="recon" style="margin-top:12px"></div></div></div><div class="card section"><h2>Recent Transactions</h2><div id="recent"></div></div></section>
 <section id="transactions" class="view"><div class="top"><h1>Transactions</h1><button class="btn" id="addBtn2">+ Add Transaction</button></div><div class="card"><div class="filters"><input id="search" placeholder="Search note, person, source..."><select id="personFilter"><option value="">All people</option></select><select id="typeFilter"><option value="">All types</option><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></div><div id="allTransactions"></div></div></section>
@@ -115,6 +116,40 @@ function updateSyncStatus(){
   else if(syncQueue.length)setConnection(syncQueue.length+' pending — saved on this device','orange');
   else setConnection('Synced with Google Sheets','green');
 }
+function cleanName(n){return String(n||'').trim().replace(/\s+/g,' ')}
+function nameKey(n){return cleanName(n).toLowerCase()}
+let canon={owner:{},source:{}};
+function buildCanon(){
+  ['owner','source'].forEach(kind=>{
+    const cnt={};
+    tx.forEach(x=>{const c=cleanName(x[kind]);if(!c)return;const k=c.toLowerCase();(cnt[k]=cnt[k]||{})[c]=((cnt[k]||{})[c]||0)+1});
+    const map={};
+    Object.keys(cnt).forEach(k=>{
+      const v=Object.entries(cnt[k]).sort((a,b)=>b[1]-a[1]||((b[0][0]!==b[0][0].toLowerCase())-(a[0][0]!==a[0][0].toLowerCase()))||a[0].localeCompare(b[0]));
+      map[k]=v[0][0];
+    });
+    canon[kind]=map;
+  });
+}
+function canonName(kind,n){const c=cleanName(n);if(!c)return c;return canon[kind][c.toLowerCase()]||c}
+function applyCanon(){
+  buildCanon();let ch=false;
+  tx.forEach(x=>{['owner','source'].forEach(k=>{const c=canonName(k,x[k]);if(c!==x[k]){x[k]=c;ch=true}})});
+  if(ch)saveLocal();
+}
+function dupList(){return tx.filter(x=>x.syncStatus==='synced'&&((x._ro!==undefined&&x._ro!==x.owner)||(x._rs!==undefined&&x._rs!==x.source)))}
+function dupBanner(){
+  const box=document.getElementById('dupBox'),l=dupList();
+  if(!l.length){box.innerHTML='';return}
+  const pairs=[];l.forEach(x=>{if(x._ro!==x.owner)pairs.push("'"+x._ro+"' → '"+x.owner+"'");if(x._rs!==x.source)pairs.push("'"+x._rs+"' → '"+x.source+"'")});
+  const ex=[...new Set(pairs)].slice(0,4).map(esc).join(', ');
+  box.innerHTML=`<div class="card" style="margin-bottom:15px;background:#fffbeb;border-color:#fde68a"><b>⚠️ Duplicate naam mile</b><div class="small" style="margin:6px 0 10px">${l.length} entries me naam alag-alag likha tha (${ex}). App me ye ab ek hi ginte hain, par Google Sheet me abhi purana likha hai.</div><button class="btn" onclick="fixNamesInSheet()">Sheet me bhi theek karo</button></div>`;
+}
+function fixNamesInSheet(){
+  const l=dupList();if(!l.length)return;
+  if(!confirm(l.length+' entries ke naam Sheet me ek jaise kiye jayenge. Ye entries Sheet me dobara likhi jayengi (Sheet ke neeche chali jayengi), app me date ke hisaab se hi dikhengi. Theek hai?'))return;
+  l.forEach(x=>updateTransaction({...x,_ro:x.owner,_rs:x.source}));
+}
 function normDate(v){
   const s=String(v||'');
   if(/^\d{4}-\d{2}-\d{2}$/.test(s))return s;
@@ -124,7 +159,7 @@ function normDate(v){
 function normalize(row){
   return {
     id:String(row.id||makeId()),date:normDate(row.date),amount:Number(row.amount||0),
-    owner:row.person||'You',type:row.type||'income',source:row.category||'Other',
+    owner:row.person||'You',type:row.type||'income',source:row.category||'Other',_ro:String(row.person||'You'),_rs:String(row.category||'Other'),
     method:row.account||'Bank',note:row.note||'',syncStatus:'synced'
   };
 }
@@ -199,6 +234,7 @@ async function syncQueueNow(){
 }
 
 function queueTransaction(item){
+  item.owner=canonName('owner',item.owner);item.source=canonName('source',item.source);
   item.syncStatus='pending';
   tx.push(item);
   syncQueue.push(item);
@@ -208,6 +244,7 @@ function queueTransaction(item){
 }
 
 function updateTransaction(item){
+  item.owner=canonName('owner',item.owner);item.source=canonName('source',item.source);
   const i=tx.findIndex(x=>String(x.id)===String(item.id));
   if(i<0){queueTransaction(item);return}
   item.syncStatus='pending';
@@ -291,6 +328,7 @@ async function deleteFromGoogle(id){
 }
 
 function render(){
+ applyCanon();
  const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0), paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0), balance=received-paid;
  document.getElementById('summary').innerHTML=`<div class="card"><div class="label">Ledger Balance</div><div class="big">${rs(balance)}</div></div><div class="card"><div class="label">Total Received</div><div class="big green">${rs(received)}</div></div><div class="card"><div class="label">Total Paid</div><div class="big red">${rs(paid)}</div></div><div class="card"><div class="label">Transactions</div><div class="big">${tx.length}</div></div>`;
  const owners={};tx.forEach(x=>{owners[x.owner]=(owners[x.owner]||0)+(x.type==='expense'?-x.amount:x.amount)});
@@ -300,7 +338,7 @@ function render(){
  const people=[...new Set(tx.map(x=>x.owner))].sort();document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join('');document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
  document.getElementById('peopleList').innerHTML=people.map(p=>{let v=tx.filter(x=>x.owner===p).reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0);return `<div class="personrow"><span><b>${esc(p)}</b><br><span class="muted small">${tx.filter(x=>x.owner===p).length} transactions</span></span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`}).join('')||'<div class="empty">No people yet</div>';
  const tuition=tx.filter(x=>String(x.source).toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0);const ms=tx.filter(x=>['momos','food cart'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0);const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0);document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
- monthly();recon();party();rangeReport();weekly();eraseInfo();
+ monthly();recon();party();rangeReport();weekly();eraseInfo();dupBanner();
 }
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fmtD(v){if(!v)return '…';const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
@@ -371,7 +409,7 @@ function delW(id){if(!confirm('Ye week hata dein? (Transactions delete nahi hong
 function party(){
  const sel=document.getElementById('partySel'),box=document.getElementById('partyBox');
  const cur=sel.value;
- const names=[...new Set(tx.flatMap(x=>[x.owner,x.source]).filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b)));
+ const seen={};tx.forEach(x=>[x.owner,x.source].forEach(n=>{if(n){const k=nameKey(n);if(!seen[k])seen[k]=n}}));const names=Object.values(seen).sort((a,b)=>String(a).localeCompare(String(b)));
  sel.innerHTML='<option value="">-- Select --</option>'+names.map(p=>`<option>${esc(p)}</option>`).join('');
  sel.value=cur;
  if(!sel.value){box.className='muted small';box.textContent='Naam select karo';return}
@@ -400,12 +438,15 @@ function updateDateHint(){
  el.textContent=i.text;el.style.background=i.warn?'#ffedd5':'#dcfce7';el.style.color=i.warn?'#9a3412':'#166534';el.style.fontWeight='700';
 }
 function fillSources(keep){
-  const cnt={};['Tuition','Momos','Food Cart','Family','Grocery','Rent','Raw Material','Other'].forEach(n=>cnt[n]=0);
-  tx.forEach(x=>{if(x.source)cnt[x.source]=(cnt[x.source]||0)+1});
-  const names=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||String(a).localeCompare(String(b)));
+  const cnt={},disp={};
+  tx.forEach(x=>{if(!x.source)return;const k=nameKey(x.source);cnt[k]=(cnt[k]||0)+1;disp[k]=x.source});
+  ['Tuition','Momos','Food Cart','Family','Grocery','Rent','Raw Material','Other'].forEach(n=>{const k=nameKey(n);if(!(k in cnt)){cnt[k]=0;disp[k]=n}});
+  const keys=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]||String(disp[a]).localeCompare(String(disp[b])));
+  const names=keys.map(k=>disp[k]);
   const sel=document.getElementById('fSourceSel');
   sel.innerHTML='<option value="">-- Source chuno --</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')+'<option value="__new">➕ Naya source likhna hai</option>';
-  sel.value=keep&&names.includes(keep)?keep:'';
+  const kc=keep?canonName('source',keep):'';
+  sel.value=kc&&names.includes(kc)?kc:'';
   document.getElementById('fSource').style.display='none';
 }
 function onSourceChange(){
@@ -414,7 +455,7 @@ function onSourceChange(){
 }
 function getSourceVal(){
   const sel=document.getElementById('fSourceSel');
-  return sel.value==='__new'?document.getElementById('fSource').value.trim():sel.value;
+  return sel.value==='__new'?canonName('source',document.getElementById('fSource').value):sel.value;
 }
 function setSourceVal(v){
   fillSources(v);
