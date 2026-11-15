@@ -53,7 +53,9 @@ input,select,textarea{font-size:16px!important}
 <section id="dashboard" class="view active"><div class="top"><h1>Dashboard</h1><button class="btn" id="addBtn">+ Add Transaction</button></div>
 <div id="dupBox"></div>
 <div class="card" style="margin-bottom:15px"><h2 style="margin:0 0 10px;font-size:18px">Kisne kitna? (Person / Source)</h2><div class="filters" style="margin-bottom:10px"><select id="partySel"><option value="">-- Select --</option></select></div><div id="partyBox" class="muted small">Naam select karo</div></div>
-<div class="grid" id="summary"></div><div class="two section"><div class="card"><h2>Money by Owner</h2><div id="owners"></div></div><div class="card"><h2>Quick Reconciliation</h2><p class="muted small">Enter the actual bank balance to compare it with the app ledger.</p><input id="bankBalance" type="number" placeholder="Actual bank balance" style="width:100%;padding:11px;border:1px solid #d1d5db;border-radius:9px"><div id="recon" style="margin-top:12px"></div></div></div><div class="card section"><h2>Recent Transactions</h2><div id="recent"></div></div></section>
+<div class="grid" id="summary"></div>
+<h2 style="font-size:18px;margin:22px 0 4px">Paisa kahan hai? (Cash / Bank / UPI)</h2><div class="muted small" style="margin-bottom:10px">Cash bank me jama kiya ya nikala ho to Type = Transfer chuno (Cash → Bank).</div><div class="grid" id="methodBox"></div>
+<div class="two section"><div class="card"><h2>Money by Owner</h2><div id="owners"></div></div><div class="card"><h2>Quick Reconciliation</h2><p class="muted small">Bank me jo balance dikh raha hai wo daalo — app Bank + UPI ki entries se milata hai. Cash alag se milao.</p><input id="bankBalance" type="number" placeholder="Actual bank balance" style="width:100%;padding:11px;border:1px solid #d1d5db;border-radius:9px"><div id="recon" style="margin-top:12px"></div><input id="cashCount" type="number" placeholder="Asli cash (haath me kitna hai)" style="width:100%;padding:11px;border:1px solid #d1d5db;border-radius:9px;margin-top:12px"><div id="reconCash" style="margin-top:12px"></div></div></div><div class="card section"><h2>Recent Transactions</h2><div id="recent"></div></div></section>
 <section id="transactions" class="view"><div class="top"><h1>Transactions</h1><button class="btn" id="addBtn2">+ Add Transaction</button></div><div class="card"><div class="filters"><input id="search" placeholder="Search note, person, source..."><select id="personFilter"><option value="">All people</option></select><select id="typeFilter"><option value="">All types</option><option value="income">Income</option><option value="expense">Expense</option><option value="transfer">Transfer</option></select></div><div id="allTransactions"></div></div></section>
 <section id="people" class="view"><div class="top"><h1>People / Owners</h1></div><div class="card"><p class="muted">These are the people whose money can be tracked separately. Edit the list inside the app by adding transactions with a new owner name.</p><div id="peopleList"></div></div></section>
 <section id="business" class="view"><div class="top"><h1>Businesses</h1></div><div class="grid"><div class="card"><div class="label">Tuition income</div><div class="big" id="tuitionTotal">₹0</div><div class="muted small">All transactions marked Tuition</div></div><div class="card"><div class="label">Momos sales</div><div class="big" id="momosSales">₹0</div><div class="muted small">Business income</div></div><div class="card"><div class="label">Momos expenses</div><div class="big red" id="momosExp">₹0</div><div class="muted small">Business expenses</div></div><div class="card"><div class="label">Momos net</div><div class="big green" id="momosNet">₹0</div><div class="muted small">Sales minus expenses</div></div></div></section>
@@ -70,7 +72,7 @@ input,select,textarea{font-size:16px!important}
 <div class="filters" style="margin-bottom:0"><button class="btn secondary" onclick="downloadBackup()">⬇️ Backup (CSV) download</button><button class="btn" style="background:#dc2626" onclick="eraseNow()">🗑️ Ye entries erase karo</button></div></div>
 <div class="card" style="margin-top:15px"><h2 style="margin:0 0 6px;font-size:18px">Weekly Close reset</h2><p class="muted small" style="margin-top:0">Sirf Weekly Close ke weeks aur shuruwati balance hatega. Transactions waise hi rahenge.</p><button class="btn secondary" onclick="resetWeeks()">Weeks reset karo</button></div></section>
 </main></div>
-<div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0" id="modalTitle">Add Transaction</h2><div class="form"><div><label>Date (entry kis din ki hai?)</label><input id="fDate" type="date"><div id="dateHint" class="small" style="margin-top:6px;padding:6px 8px;border-radius:8px"></div></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><select id="fSourceSel"></select><input id="fSource" placeholder="Naya source ka naam likho" style="display:none;margin-top:6px"></div><div><label>Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
+<div class="modal" id="modal"><div class="modalbox"><h2 style="margin-top:0" id="modalTitle">Add Transaction</h2><div class="form"><div><label>Date (entry kis din ki hai?)</label><input id="fDate" type="date"><div id="dateHint" class="small" style="margin-top:6px;padding:6px 8px;border-radius:8px"></div></div><div><label>Amount (₹)</label><input id="fAmount" type="number" min="0" step="0.01"></div><div><label>Owner / Whose money?</label><input id="fOwner" list="ownerOptions" placeholder="e.g. You, Papa, Sister"><datalist id="ownerOptions"></datalist></div><div><label>Type</label><select id="fType"><option value="income">Income / Received</option><option value="expense">Expense / Paid</option><option value="transfer">Transfer</option></select></div><div><label>Source / Category</label><select id="fSourceSel"></select><input id="fSource" placeholder="Naya source ka naam likho" style="display:none;margin-top:6px"></div><div><label id="mLabel">Payment method</label><select id="fMethod"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div id="toWrap" style="display:none"><label>Kahan gaya (To)</label><select id="fMethodTo"><option>Bank</option><option>Cash</option><option>UPI</option><option>Other</option></select></div><div class="full"><label>Note</label><textarea id="fNote" rows="3" placeholder="e.g. Papa ne ghar ke kharch ke liye bheja"></textarea></div></div><div class="actions"><button class="btn secondary" id="cancel">Cancel</button><button class="btn" id="save">Save Transaction</button></div></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbyGjhpK51mHhgBKonDNer-T_RGci0v_69JYJgPp42XCViOpbd7G1QZp0tlK20erV2AS/exec';
 const KEY='hisab_kitab_v3';
@@ -267,9 +269,9 @@ function editTx(id){
   document.getElementById('fOwner').value=x.owner;
   document.getElementById('fType').value=x.type;
   setSourceVal(x.source);
-  document.getElementById('fMethod').value=x.method;
+  {const pr=String(x.method||'').split('→').map(cleanName);document.getElementById('fMethod').value=pr[0]||'Bank';if(pr[1])document.getElementById('fMethodTo').value=pr[1]}
   document.getElementById('fNote').value=x.note||'';
-  document.getElementById('modalTitle').textContent='Edit Transaction';
+  syncTypeUI();document.getElementById('modalTitle').textContent='Edit Transaction';
   document.getElementById('save').textContent='Update Transaction';
   updateDateHint();
 }
@@ -340,7 +342,7 @@ function render(){
  const people=[...new Set(tx.map(x=>x.owner))].sort();document.getElementById('personFilter').innerHTML='<option value="">All people</option>'+people.map(p=>`<option>${esc(p)}</option>`).join('');document.getElementById('ownerOptions').innerHTML=people.map(p=>`<option value="${esc(p)}">`).join('');
  document.getElementById('peopleList').innerHTML=people.map(p=>{let v=tx.filter(x=>x.owner===p).reduce((a,x)=>a+(x.type==='expense'?-x.amount:x.amount),0);return `<div class="personrow"><span><b>${esc(p)}</b><br><span class="muted small">${tx.filter(x=>x.owner===p).length} transactions</span></span><b class="${v<0?'red':'green'}">${rs(v)}</b></div>`}).join('')||'<div class="empty">No people yet</div>';
  const tuition=tx.filter(x=>String(x.source).toLowerCase().includes('tuition')&&x.type==='income').reduce((a,x)=>a+x.amount,0);const ms=tx.filter(x=>['momos','food cart'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='income').reduce((a,x)=>a+x.amount,0);const me=tx.filter(x=>['momos','food cart','raw material'].some(s=>String(x.source).toLowerCase().includes(s))&&x.type==='expense').reduce((a,x)=>a+x.amount,0);document.getElementById('tuitionTotal').textContent=rs(tuition);document.getElementById('momosSales').textContent=rs(ms);document.getElementById('momosExp').textContent=rs(me);document.getElementById('momosNet').textContent=rs(ms-me);
- monthly();recon();party();rangeReport();weekly();eraseInfo();dupBanner();
+ monthly();recon();party();rangeReport();weekly();eraseInfo();dupBanner();methodBox();
 }
 function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function fmtD(v){if(!v)return '…';const [y,m,d]=v.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'})}
@@ -408,6 +410,32 @@ function weekly(){
  box.innerHTML=list.length?`<div class="card" style="background:#eff6ff;border-color:#bfdbfe"><div class="label">Abhi tak ka balance (${sel.value?esc(sel.value):'Sab owners'})</div><div class="big ${carry<0?'red':'green'}">${rs(carry)}</div><div class="muted small">Ye amount aakhri week se agle week me shift hoga</div></div>`+cards.join(''):'<div class="empty">Abhi koi week nahi hai. Upar se week ki From aur To date daal ke add karo.</div>';
 }
 function delW(id){if(!confirm('Ye week hata dein? (Transactions delete nahi honge)'))return;weeks.list=weeks.list.filter(w=>w.id!==id);saveWeeks();weekly()}
+function methodBal(){
+ const b={};const get=m=>{const k=cleanName(m)||'Other';return b[k]??={in:0,out:0,tin:0,tout:0}};
+ ['Bank','UPI','Cash','Other'].forEach(get);
+ tx.forEach(x=>{
+  if(x.type==='income')get(x.method).in+=x.amount;
+  else if(x.type==='expense')get(x.method).out+=x.amount;
+  else if(x.type==='transfer'&&String(x.method).includes('→')){const [a,c]=String(x.method).split('→').map(cleanName);get(a).tout+=x.amount;get(c).tin+=x.amount}
+ });
+ Object.values(b).forEach(v=>v.bal=v.in+v.tin-v.out-v.tout);
+ return b;
+}
+function methodBox(){
+ const b=methodBal();
+ document.getElementById('methodBox').innerHTML=Object.entries(b).filter(([k,v])=>v.in||v.out||v.tin||v.tout||['Bank','Cash'].includes(k)).map(([k,v])=>{
+  const tr=v.tin-v.tout;
+  return `<div class="card"><div class="label">${k==='Cash'?'💵 ':k==='Bank'?'🏦 ':k==='UPI'?'📱 ':''}${esc(k)}</div><div class="big ${v.bal<0?'red':''}">${rs(v.bal)}</div><div class="muted small" style="margin-top:4px">Aaya <span class="green">${rs(v.in)}</span> · Gaya <span class="red">${rs(v.out)}</span>${tr?' · Transfer '+(tr>0?'+':'−')+rs(Math.abs(tr)):''}</div></div>`}).join('');
+}
+function methodVal(){
+ const f=document.getElementById('fMethod').value;
+ return document.getElementById('fType').value==='transfer'?f+' → '+document.getElementById('fMethodTo').value:f;
+}
+function syncTypeUI(){
+ const t=document.getElementById('fType').value==='transfer';
+ document.getElementById('toWrap').style.display=t?'block':'none';
+ document.getElementById('mLabel').textContent=t?'Kahan se (From)':'Payment method';
+}
 function party(){
  const sel=document.getElementById('partySel'),box=document.getElementById('partyBox');
  const cur=sel.value;
@@ -425,7 +453,13 @@ function party(){
 function filtered(){const q=(document.getElementById('search')?.value||'').toLowerCase(),p=document.getElementById('personFilter')?.value||'',t=document.getElementById('typeFilter')?.value||'';return [...tx].sort((a,b)=>String(b.date).localeCompare(String(a.date))).filter(x=>(!q||[x.owner,x.source,x.note,x.method].join(' ').toLowerCase().includes(q))&&(!p||x.owner===p)&&(!t||x.type===t))}
 function table(arr){if(!arr.length)return '<div class="empty">No transactions found.</div>';return `<div class="tablewrap"><table class="table tx"><thead><tr><th>Date</th><th>Owner</th><th>Source</th><th>Type</th><th>Amount</th><th>Note</th><th></th></tr></thead><tbody>${arr.map(x=>`<tr><td data-label="Date">${esc(x.date)}</td><td data-label="Owner">${esc(x.owner)}</td><td data-label="Source">${esc(x.source)}</td><td data-label="Type"><span class="pill ${x.type==='income'?'in':x.type==='expense'?'out':'transfer'}">${esc(x.type)}</span></td><td data-label="Amount" class="${x.type==='expense'?'red':'green'}"><b>${x.type==='expense'?'-':''}${rs(x.amount)}</b></td><td data-label="Note">${esc(x.note||'')}</td><td class="act"><button class="small" style="background:#dbeafe;color:#1e40af;padding:6px 10px;border-radius:8px;margin-right:6px" onclick="editTx('${esc(x.id)}')">Edit</button><button class="small danger" style="padding:6px 10px;border-radius:8px" onclick="del('${esc(x.id)}')">Delete</button></td></tr>`).join('')}</tbody></table></div>`}
 function monthly(){const m={};tx.forEach(x=>{const k=String(x.date).slice(0,7);m[k]??={in:0,out:0};if(x.type==='income')m[k].in+=x.amount;else if(x.type==='expense')m[k].out+=x.amount});document.getElementById('monthly').innerHTML=Object.entries(m).sort((a,b)=>b[0].localeCompare(a[0])).map(([k,v])=>`<div class="personrow"><b>${k}</b><span>Received <span class="green">${rs(v.in)}</span> · Paid <span class="red">${rs(v.out)}</span> · Net <b>${rs(v.in-v.out)}</b></span></div>`).join('')||'<div class="empty">No data</div>'}
-function recon(){const b=parseFloat(document.getElementById('bankBalance').value);const received=tx.filter(x=>x.type==='income').reduce((a,x)=>a+x.amount,0),paid=tx.filter(x=>x.type==='expense').reduce((a,x)=>a+x.amount,0),ledger=received-paid;if(!isNaN(b))document.getElementById('recon').innerHTML=`<b>App ledger:</b> ${rs(ledger)}<br><b>Difference:</b> <span class="${Math.abs(b-ledger)<.01?'green':'red'}">${rs(b-ledger)}</span>`;else document.getElementById('recon').innerHTML='<span class="muted small">Enter a bank balance to check.</span>'}
+function recon(){
+ const bal=methodBal(),bankL=(bal.Bank?bal.Bank.bal:0)+(bal.UPI?bal.UPI.bal:0),cashL=bal.Cash?bal.Cash.bal:0;
+ const b=parseFloat(document.getElementById('bankBalance').value),c=parseFloat(document.getElementById('cashCount').value);
+ const line=(l,led,act)=>`<b>${l}:</b> ${rs(led)}<br><b>Difference:</b> <span class="${Math.abs(act-led)<.01?'green':'red'}">${rs(act-led)}</span>`;
+ document.getElementById('recon').innerHTML=!isNaN(b)?line('App ledger (Bank + UPI)',bankL,b):'<span class="muted small">Bank balance daalo — app me Bank + UPI ka hisaab '+rs(bankL)+' hai.</span>';
+ document.getElementById('reconCash').innerHTML=!isNaN(c)?line('App cash',cashL,c):'<span class="muted small">Haath me kitna cash hai wo daalo — app me Cash ka hisaab '+rs(cashL)+' hai.</span>';
+}
 function todayLocal(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function dateInfo(v){
  if(!v)return {text:'Date select karo',warn:true,fmt:''};
@@ -464,22 +498,23 @@ function setSourceVal(v){
   const sel=document.getElementById('fSourceSel');
   if(v&&sel.value!==v){const o=document.createElement('option');o.value=v;o.textContent=v;sel.insertBefore(o,sel.querySelector('option[value="__new"]'));sel.value=v}
 }
-function openModal(){editingId=null;fillSources();document.getElementById('modalTitle').textContent='Add Transaction';document.getElementById('save').textContent='Save Transaction';document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=todayLocal();updateDateHint();document.getElementById('fAmount').focus()}
+function openModal(){editingId=null;syncTypeUI();fillSources();document.getElementById('modalTitle').textContent='Add Transaction';document.getElementById('save').textContent='Save Transaction';document.getElementById('modal').classList.add('show');document.getElementById('fDate').value=todayLocal();updateDateHint();document.getElementById('fAmount').focus()}
 function closeModal(){editingId=null;document.getElementById('modalTitle').textContent='Add Transaction';document.getElementById('save').textContent='Save Transaction';document.getElementById('modal').classList.remove('show')}
 async function del(id){
  if(!confirm('Delete this transaction?'))return;
  tx=tx.filter(x=>String(x.id)!==String(id));markPendingForDelete(id);saveLocal();render();
  queueDelete([id]);
 }
-document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('partySel').onchange=party;document.getElementById('fSourceSel').onchange=onSourceChange;document.getElementById('fDate').oninput=updateDateHint;['rFrom','rTo','rOwner','rSource'].forEach(id=>document.getElementById(id).oninput=rangeReport);
+document.getElementById('addBtn').onclick=openModal;document.getElementById('addBtn2').onclick=openModal;document.getElementById('cancel').onclick=closeModal;document.getElementById('bankBalance').oninput=recon;document.getElementById('cashCount').oninput=recon;document.getElementById('fType').onchange=syncTypeUI;document.getElementById('partySel').onchange=party;document.getElementById('fSourceSel').onchange=onSourceChange;document.getElementById('fDate').oninput=updateDateHint;['rFrom','rTo','rOwner','rSource'].forEach(id=>document.getElementById(id).oninput=rangeReport);
 document.getElementById('wOwner').onchange=()=>{weeks.owner=document.getElementById('wOwner').value;saveWeeks();weekly()};
 document.getElementById('wOpen').oninput=()=>{const k=document.getElementById('wOwner').value||'__all',v=document.getElementById('wOpen').value;weeks.open[k]=v===''?0:Number(v);saveWeeks();weekly()};
 document.getElementById('wAdd').onclick=()=>{const f=document.getElementById('wFrom').value,t=document.getElementById('wTo').value;if(!f||!t)return alert('Week ki From aur To dono date daalo');if(f>t)return alert('From date, To date se pehle honi chahiye');weeks.list.push({id:makeId(),from:f,to:t});saveWeeks();document.getElementById('wFrom').value='';document.getElementById('wTo').value='';weekly()};['search','personFilter','typeFilter'].forEach(id=>document.getElementById(id).oninput=render);
 document.getElementById('save').onclick=()=>{
  const amount=+document.getElementById('fAmount').value;if(!amount)return alert('Amount enter karo');
+ if(document.getElementById('fType').value==='transfer'&&document.getElementById('fMethod').value===document.getElementById('fMethodTo').value)return alert('Transfer me From aur To alag chuno (jaise Cash → Bank)');
  const di=dateInfo(document.getElementById('fDate').value||todayLocal());
  if(!confirm((editingId?'✏️ Edit update: ':'')+'⚠️ Ye entry '+di.fmt+' ('+di.label+') ki hai.\n\nAmount: '+rs(amount)+' · '+(document.getElementById('fOwner').value.trim()||'You')+'\n\nDate sahi hai? Sahi hai to OK dabao, nahi to Cancel karke date badlo.'))return;
- const item={id:editingId||makeId(),date:document.getElementById('fDate').value||todayLocal(),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:getSourceVal()||'Other',method:document.getElementById('fMethod').value,note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};
+ const item={id:editingId||makeId(),date:document.getElementById('fDate').value||todayLocal(),amount,owner:document.getElementById('fOwner').value.trim()||'You',type:document.getElementById('fType').value,source:getSourceVal()||'Other',method:methodVal(),note:document.getElementById('fNote').value.trim(),syncStatus:'pending'};
  const btn=document.getElementById('save');btn.disabled=true;btn.textContent='Saved ✓';
  if(editingId)updateTransaction(item);else queueTransaction(item);
  closeModal();document.querySelectorAll('#modal input,#modal textarea').forEach(e=>e.value='');
